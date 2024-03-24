@@ -1,5 +1,7 @@
 DATA:
-    ROOT: 'E:\DATASETS\hmdb51_org\videos\'
+#    ROOT: 'E:\DATASETS\hmdb51_org\videos\'
+    # 服务器环境下的路径
+    ROOT: 'DATASETS/hmdb51_org/videos/'
     TRAIN_FILE: 'datasets_splits/hmdb51/base_train.txt'
     VAL_FILE: 'datasets_splits/hmdb51/base_val.txt'
     DATASET: hmdb51
