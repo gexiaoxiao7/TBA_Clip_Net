@@ -3,7 +3,6 @@ import clip
 import numpy as np
 import cv2
 from PIL import Image
-import matplotlib.pyplot as plt
 from ultralytics import YOLO
 
 def image_segmentation(path):

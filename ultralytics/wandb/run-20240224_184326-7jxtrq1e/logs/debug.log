@@ -1,0 +1,27 @@
+2024-02-24 18:43:26,807 INFO    MainThread:17032 [wandb_setup.py:_flush():76] Current SDK version is 0.16.3
+2024-02-24 18:43:26,808 INFO    MainThread:17032 [wandb_setup.py:_flush():76] Configure stats pid to 17032
+2024-02-24 18:43:26,808 INFO    MainThread:17032 [wandb_setup.py:_flush():76] Loading settings from C:\Users\Marshall Ge\.config\wandb\settings
+2024-02-24 18:43:26,808 INFO    MainThread:17032 [wandb_setup.py:_flush():76] Loading settings from D:\gfx\CODE\project\ultralytics\ultralytics\wandb\settings
+2024-02-24 18:43:26,808 WARNING MainThread:17032 [wandb_setup.py:_flush():76] Unknown environment variable: WANDB_SERVICE
+2024-02-24 18:43:26,808 INFO    MainThread:17032 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2024-02-24 18:43:26,809 INFO    MainThread:17032 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2024-02-24 18:43:26,810 INFO    MainThread:17032 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program': '<python with no main file>'}
+2024-02-24 18:43:26,810 INFO    MainThread:17032 [wandb_init.py:_log_setup():526] Logging user logs to D:\gfx\CODE\project\ultralytics\ultralytics\wandb\run-20240224_184326-7jxtrq1e\logs\debug.log
+2024-02-24 18:43:26,810 INFO    MainThread:17032 [wandb_init.py:_log_setup():527] Logging internal logs to D:\gfx\CODE\project\ultralytics\ultralytics\wandb\run-20240224_184326-7jxtrq1e\logs\debug-internal.log
+2024-02-24 18:43:26,810 INFO    MainThread:17032 [wandb_init.py:init():566] calling init triggers
+2024-02-24 18:43:26,810 INFO    MainThread:17032 [wandb_init.py:init():573] wandb.init called with sweep_config: {}
+config: {'task': 'detect', 'mode': 'train', 'model': 'yolov8n.pt', 'data': 'D:\\gfx\\CODE\\project\\ultralytics\\ultralytics\\cfg\\datasets\\coco128.yaml', 'epochs': 3, 'time': None, 'patience': 50, 'batch': 16, 'imgsz': 640, 'save': True, 'save_period': -1, 'cache': False, 'device': None, 'workers': 8, 'project': None, 'name': 'train2', 'exist_ok': False, 'pretrained': True, 'optimizer': 'auto', 'verbose': True, 'seed': 0, 'deterministic': True, 'single_cls': False, 'rect': False, 'cos_lr': False, 'close_mosaic': 10, 'resume': False, 'amp': True, 'fraction': 1.0, 'profile': False, 'freeze': None, 'overlap_mask': True, 'mask_ratio': 4, 'dropout': 0.0, 'val': True, 'split': 'val', 'save_json': False, 'save_hybrid': False, 'conf': None, 'iou': 0.7, 'max_det': 300, 'half': False, 'dnn': False, 'plots': True, 'source': None, 'vid_stride': 1, 'stream_buffer': False, 'visualize': False, 'augment': False, 'agnostic_nms': False, 'classes': None, 'retina_masks': False, 'show': False, 'save_frames': False, 'save_txt': False, 'save_conf': False, 'save_crop': False, 'show_labels': True, 'show_conf': True, 'show_boxes': True, 'line_width': None, 'format': 'torchscript', 'keras': False, 'optimize': False, 'int8': False, 'dynamic': False, 'simplify': False, 'opset': None, 'workspace': 4, 'nms': False, 'lr0': 0.01, 'lrf': 0.01, 'momentum': 0.937, 'weight_decay': 0.0005, 'warmup_epochs': 3.0, 'warmup_momentum': 0.8, 'warmup_bias_lr': 0.1, 'box': 7.5, 'cls': 0.5, 'dfl': 1.5, 'pose': 12.0, 'kobj': 1.0, 'label_smoothing': 0.0, 'nbs': 64, 'hsv_h': 0.015, 'hsv_s': 0.7, 'hsv_v': 0.4, 'degrees': 0.0, 'translate': 0.1, 'scale': 0.5, 'shear': 0.0, 'perspective': 0.0, 'flipud': 0.0, 'fliplr': 0.5, 'mosaic': 1.0, 'mixup': 0.0, 'copy_paste': 0.0, 'cfg': None, 'tracker': 'botsort.yaml', 'save_dir': 'd:\\gfx\\code\\project\\ultralytics\\runs\\detect\\train2'}
+2024-02-24 18:43:26,810 INFO    MainThread:17032 [wandb_init.py:init():616] starting backend
+2024-02-24 18:43:26,810 INFO    MainThread:17032 [wandb_init.py:init():620] setting up manager
+2024-02-24 18:43:26,817 INFO    MainThread:17032 [backend.py:_multiprocessing_setup():105] multiprocessing start_methods=spawn, using: spawn
+2024-02-24 18:43:26,820 INFO    MainThread:17032 [wandb_init.py:init():628] backend started and connected
+2024-02-24 18:43:26,830 INFO    MainThread:17032 [wandb_init.py:init():720] updated telemetry
+2024-02-24 18:43:26,906 INFO    MainThread:17032 [wandb_init.py:init():753] communicating run to backend with 90.0 second timeout
+2024-02-24 18:43:27,964 INFO    MainThread:17032 [wandb_run.py:_on_init():2262] communicating current version
+2024-02-24 18:43:28,541 INFO    MainThread:17032 [wandb_run.py:_on_init():2271] got version response 
+2024-02-24 18:43:28,541 INFO    MainThread:17032 [wandb_init.py:init():804] starting run threads in backend
+2024-02-24 18:43:46,708 INFO    MainThread:17032 [wandb_run.py:_console_start():2241] atexit reg
+2024-02-24 18:43:46,708 INFO    MainThread:17032 [wandb_run.py:_redirect():2096] redirect: wrap_raw
+2024-02-24 18:43:46,708 INFO    MainThread:17032 [wandb_run.py:_redirect():2161] Wrapping output streams.
+2024-02-24 18:43:46,708 INFO    MainThread:17032 [wandb_run.py:_redirect():2186] Redirects installed.
+2024-02-24 18:43:46,710 INFO    MainThread:17032 [wandb_init.py:init():847] run started, returning control to user process

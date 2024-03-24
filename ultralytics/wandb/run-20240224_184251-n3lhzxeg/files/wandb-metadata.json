@@ -1,0 +1,53 @@
+{
+    "os": "Windows-10-10.0.19045-SP0",
+    "python": "3.11.5",
+    "heartbeatAt": "2024-02-24T10:42:53.125155",
+    "startedAt": "2024-02-24T10:42:51.154703",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "D:\\gfx\\CODE\\project\\ultralytics\\ultralytics\\demo.py",
+    "codePathLocal": "demo.py",
+    "codePath": "ultralytics\\demo.py",
+    "git": {
+        "remote": "https://gitcode.com/ultralytics/ultralytics.git",
+        "commit": "6cbe736bfd8e317cf2602105a6a92d8253fdd151"
+    },
+    "email": "1004083066@qq.com",
+    "root": "D:/gfx/CODE/project/ultralytics",
+    "host": "LAPTOP-LVERGFUF",
+    "username": "Marshall Ge",
+    "executable": "C:\\ProgramData\\anaconda3\\python.exe",
+    "cpu_count": 8,
+    "cpu_count_logical": 16,
+    "cpu_freq": {
+        "current": 2208.0,
+        "min": 0.0,
+        "max": 2208.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2208.0,
+            "min": 0.0,
+            "max": 2208.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 454.57812118530273,
+            "used": 71.82581329345703
+        }
+    },
+    "gpu": "NVIDIA GeForce GTX 1650 Ti",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce GTX 1650 Ti",
+            "memory_total": 4294967296
+        }
+    ],
+    "memory": {
+        "total": 23.780384063720703
+    }
+}
