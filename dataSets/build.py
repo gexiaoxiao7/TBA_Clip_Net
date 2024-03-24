@@ -20,7 +20,7 @@ class VideoDataset():
         video_capture = cv2.VideoCapture(path)
         total_frames = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
         frames = []
-        frame_ids = np.linspace(0, total_frames - 1, self.num_frames, dtype=np.int)
+        frame_ids = np.linspace(0, total_frames - 1, self.num_frames)
         for i in range(total_frames):
             ret, frame = video_capture.read()
             if not ret:

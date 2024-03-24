@@ -53,8 +53,9 @@ def validate(val_loader,model):
                     acc5 += 1
             acc1_meter.update(float(acc1) / b * 100, b)
             acc5_meter.update(float(acc5) / b * 100, b)
-            print( f'Test: [{idx}/{len(val_loader)}]\t'
-                    f'Acc@1: {acc1_meter.avg:.3f}\t')
+            if idx % 200 == 0:
+                print( f'Test: [{idx}/{len(val_loader)}]\t'
+                        f'Acc@1: {acc1_meter.avg:.3f}\t')
         print(f'Acc@1: {acc1_meter.avg:.3f}\t'
               f'Acc@5: {acc5_meter.avg:.3f}\t')
         return acc1_meter.avg

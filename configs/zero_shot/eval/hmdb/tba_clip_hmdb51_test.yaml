@@ -1,5 +1,5 @@
 DATA:
-    ROOT: 'E:\DATASETS\hmdb51_org\videos\'
+    ROOT: 'E:\DATASETS\hmdb51_org\videos'
     TRAIN_FILE: 'datasets_splits/hmdb51/test_train.txt'
     VAL_FILE: 'datasets_splits/hmdb51/test_val.txt'
     DATASET: hmdb51
