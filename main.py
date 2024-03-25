@@ -12,6 +12,7 @@ def parse_option():
     parser.add_argument('--config', '-cfg', required=True, type=str, default='configs/zero_shot/eval/hmdb/tba_clip_hmdb51_base.yaml')
     parser.add_argument('--batch-size', type=int)
     parser.add_argument('--if_teacher', type=bool)
+    parser.add_argument('--instructionFT', type=bool)
     args = parser.parse_args()
     config = get_config(args)
     return args, config

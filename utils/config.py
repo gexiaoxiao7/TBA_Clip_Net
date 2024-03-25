@@ -64,6 +64,8 @@ def update_config(config, args):
         config.TRAIN.BATCH_SIZE = args.batch_size
     if args.if_teacher:
         config.DATA.IF_TEACHER = args.if_teacher
+    if args.instructionFT:
+        config.DATA.InstructionFT = args.instructionFT
     # set local rank for distributed training
     # config.LOCAL_RANK = args.local_rank
     config.freeze()

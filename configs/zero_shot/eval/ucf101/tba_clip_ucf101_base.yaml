@@ -6,10 +6,12 @@ DATA:
     NUM_FRAMES: 8
     NUM_CLASSES: 102
     INPUT_SIZE: 224
-    LABEL_LIST: 'labels/UCF-101_base_labels.csv'
+    LABEL_LIST: ['labels/UCF-101_base_labels.csv','labels/UCF-101_base_labels.csv']
     IF_TEACHER: False
+    InstructionFT: True
 MODEL:
     ARCH: ViT-B/16
+    YOLO: 'Yolo-model/yolov8n.pt'
 TRAIN:
     BATCH_SIZE: 4 # BS 64
     ACCUMULATION_STEPS: 2
