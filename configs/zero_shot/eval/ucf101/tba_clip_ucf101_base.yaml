@@ -1,5 +1,5 @@
 DATA:
-    ROOT: 'E:/DATASETS/UCF-101/videos/'
+    ROOT: '/root/autodl-fs/ucf101/'
     TRAIN_FILE: 'datasets_splits/UCF-101/base_train.txt'
     VAL_FILE: 'datasets_splits/UCF-101/base_val.txt'
     DATASET: UCF-101
