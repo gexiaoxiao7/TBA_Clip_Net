@@ -9,7 +9,7 @@ import clip
 
 class VideoDataset():
     def __init__(self,config,preprocess,device,ann_file):
-        self.labels_file = config.DATA.LABEL_LIST[1] if config.DATA.INSTRUCTION_FT else config.DATA.LABEL_LIST[0]
+        self.labels_file = config.DATA.LABEL_LIST
         self.ann_file = ann_file
         self.data_prefix = config.DATA.ROOT
         self.num_frames = config.DATA.NUM_FRAMES

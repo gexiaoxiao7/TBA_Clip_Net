@@ -8,7 +8,7 @@ DATA:
     NUM_FRAMES: 8
     NUM_CLASSES: 51
     INPUT_SIZE: 224
-    LABEL_LIST: ['labels/hmdb51_org_base_labels.csv','labels/hmdb51_org_base_labels_insFT.csv']
+    LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
     IF_TEACHER: False
     InstructionFT: True
 MODEL:
