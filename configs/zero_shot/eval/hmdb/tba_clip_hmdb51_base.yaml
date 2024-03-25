@@ -15,6 +15,7 @@ MODEL:
     ARCH: ViT-B/16
     YOLO: 'Yolo-model/yolov8n.pt'
 TRAIN:
+    IF_PRETRAINED: True
     BATCH_SIZE: 4 # BS 64
     ACCUMULATION_STEPS: 2
     EPOCHS: 50

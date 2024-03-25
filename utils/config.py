@@ -31,6 +31,7 @@ _C.MODEL.YOLO = 'Yolo-model/yolov8n.pt'
 # Training settings
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
+_C.TRAIN.IF_PRETRAINED = True
 _C.TRAIN.EPOCHS = 30
 _C.TRAIN.WARMUP_EPOCHS = 5
 _C.TRAIN.WEIGHT_DECAY = 0.001

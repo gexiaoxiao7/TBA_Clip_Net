@@ -70,10 +70,13 @@ class VideoDataset():
 def build_dataloader(config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     _, preprocess = clip.load(config.MODEL.ARCH, device=device)
-    train_data = VideoDataset(config,preprocess = preprocess,device = device,ann_file=config.DATA.TRAIN_FILE)
-    train_loader = DataLoader(train_data,batch_size=config.TRAIN.BATCH_SIZE)
-    print("train_data finished!")
-    val_data = VideoDataset(config,preprocess = preprocess,device = device,ann_file=config.DATA.VAL_FILE)
-    val_loader = DataLoader(val_data,batch_size=1)
+    val_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.VAL_FILE)
+    val_loader = DataLoader(val_data, batch_size=1)
     print("val_data_finished!")
-    return train_data, val_data, train_loader, val_loader
+    if config.TRAIN.IF_PRETRAINED == False:
+        train_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE)
+        train_loader = DataLoader(train_data, batch_size=config.TRAIN.BATCH_SIZE)
+        print("train_data finished!")
+        return train_data, val_data, train_loader, val_loader
+    else:
+        return None, val_data, None, val_loader
