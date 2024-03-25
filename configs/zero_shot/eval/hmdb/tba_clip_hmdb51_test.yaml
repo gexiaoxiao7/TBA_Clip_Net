@@ -8,6 +8,7 @@ DATA:
     INPUT_SIZE: 224
     LABEL_LIST: 'labels/hmdb51_org_base_labels.csv'
     IF_TEACHER: False
+    INSTRUCTION_FT: True
 MODEL:
     ARCH: ViT-B/16
     YOLO: 'Yolo-model/yolov8n.pt'

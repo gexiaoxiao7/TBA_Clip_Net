@@ -1,5 +1,5 @@
 DATA:
-    ROOT: 'E:\DATASETS\UCF-101\videos\'
+    ROOT: 'E:/DATASETS/UCF-101/videos/'
     TRAIN_FILE: 'datasets_splits/UCF-101/base_train.txt'
     VAL_FILE: 'datasets_splits/UCF-101/base_val.txt'
     DATASET: UCF-101
@@ -8,7 +8,7 @@ DATA:
     INPUT_SIZE: 224
     LABEL_LIST: 'labels/UCF-101_base_labels.csv'
     IF_TEACHER: False
-    InstructionFT: True
+    INSTRUCTION_FT: True
 MODEL:
     ARCH: ViT-B/16
     YOLO: 'Yolo-model/yolov8n.pt'

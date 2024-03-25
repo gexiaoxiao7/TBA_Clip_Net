@@ -19,6 +19,7 @@ _C.DATA.INPUT_SIZE = 224
 _C.DATA.NUM_CLASSES = 51
 _C.DATA.LABEL_LIST = 'labels/hmdb51_org_base_labels.csv'
 _C.DATA.IF_TEACHER = False
+_C.DATA.INSTRUCTION_FT = True
 # -----------------------------------------------------------------------------
 # Model settings
 # -----------------------------------------------------------------------------
@@ -65,7 +66,7 @@ def update_config(config, args):
     if args.if_teacher:
         config.DATA.IF_TEACHER = args.if_teacher
     if args.instructionFT:
-        config.DATA.InstructionFT = args.instructionFT
+        config.DATA.INSTRUCTION_FT = args.instructionFT
     # set local rank for distributed training
     # config.LOCAL_RANK = args.local_rank
     config.freeze()
