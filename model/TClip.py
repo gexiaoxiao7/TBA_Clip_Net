@@ -20,62 +20,62 @@ class VideoEncoder(nn.Module):
         self.preprocess = preprocess
         self.dtype = clip_model.dtype
         self.device = device
-    def forward(self,images):
+
+    def forward(self, images):
         video_info = images
-        image_inputs = [self.preprocess(Image.fromarray(cv2.cvtColor(c, cv2.COLOR_BGR2RGB))).unsqueeze(0).to(self.device) for c in video_info]
-        image_features = [self.model.encode_image(x).to(self.device) for x in image_inputs]
+        video_info = [torch.from_numpy(x).to(self.device).type(self.dtype) for x in video_info]
+        image_features = [self.model.encode_image(x) for x in video_info]
         image_features = torch.stack(image_features, dim=1)
         temporal_pooling = TemporalPooling(feature_dim=image_features.shape[-1]).to(self.device)
         video_features = temporal_pooling(image_features)
-
-        # image_input = self.preprocess(Image.fromarray(cv2.cvtColor(video_info, cv2.COLOR_BGR2RGB)).convert('RGB')).unsqueeze(0).to(self.device)
-        # image_features = self.model.encode_image(image_input)
         return video_features
-
-class TextEncoder(nn.Module):
-    def __init__(self, clip_model, device):
-        super().__init__()
-        self.tokenize = clip.tokenize
-        self.model = clip_model
-        self.device = device
-        self.dtype = clip_model.dtype
-    def forward(self, prompts):
-        x = torch.cat([self.tokenize(f"a photo of {prompt}") for prompt in prompts]).to(self.device)
-        text_features = self.model.encode_text(x)
-        return text_features
-
 
 class Prompts_build(nn.Module):
     def __init__(self, classnames,device):
         super().__init__()
         self.classnames = classnames
         self.device = device
-    def construct_prompts(self, ctx, prefix):
+    def construct_prompts(self, ctx, prefix, suffix):
         # dim0 is either batch_size (during training) or n_cls (during testing)
         # ctx: context tokens, with shape of (dim0, n_ctx, ctx_dim)
         # prefix: the sos token, with shape of (n_cls, 1, ctx_dim)
         # suffix: remaining tokens, with shape of (n_cls, *, ctx_dim)
-        prompts = torch.cat([clip.tokenize(prefix + x) for x in ctx]).to(self.device)
-        return prompts
-
+        prompt = prefix + ctx + suffix
+        return prompt
     def forward(self):
         prefix = 'a photo of'
-        prompts = self.construct_prompts(self.classnames, prefix).to(self.device)
+        suffix = ''
+        prompts = [self.construct_prompts(x, prefix, suffix) for x in self.classnames]
         return prompts
+
+class TextEncoder(nn.Module):
+    def __init__(self, clip_model,device):
+        super().__init__()
+        self.tokenize = clip.tokenize
+        self.model = clip_model
+        self.device = device
+        self.dtype = clip_model.dtype
+    def forward(self, prompts):
+        x = torch.cat([self.tokenize(prompt) for prompt in prompts]).to(self.device)
+        text_features = self.model.encode_text(x)
+        return text_features
+
+
+
 class TBA_Clip(nn.Module):
     def __init__(self, clip_model, preprocess, classnames, device):
         super().__init__()
         self.model = clip_model
-        # self.prompts_learner = Prompts_build(classnames = classnames, device = device)
+        self.prompts_learner = Prompts_build(classnames = classnames, device = device)
         self.preprocess = preprocess
         self.text_encoder = TextEncoder(clip_model,device)
         self.image_encoder = VideoEncoder(clip_model, preprocess, device)
         self.dtype = clip_model.dtype
         self.classnames = classnames
     def forward(self, image):
-        # prompts = self.prompts_learner()
+        prompts = self.prompts_learner()
         video_features = self.image_encoder(image)
-        text_features = self.text_encoder(self.classnames)
+        text_features = self.text_encoder(prompts)
         video_features /= video_features.norm(dim=-1, keepdim=True)
         text_features /= text_features.norm(dim=-1, keepdim=True)
         similarity = (100.0 * video_features @ text_features.T).softmax(dim=-1)

@@ -10,6 +10,8 @@ from utils.tools import AverageMeter
 def parse_option():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', '-cfg', required=True, type=str, default='configs/zero_shot/eval/hmdb/tba_clip_hmdb51_base.yaml')
+    parser.add_argument('--batch-size', type=int)
+    parser.add_argument('--if_teacher', type=bool)
     args = parser.parse_args()
     config = get_config(args)
     return args, config
@@ -35,7 +37,7 @@ def validate(val_loader,model):
             # tot_similarity = torch.zeros((b, config.DATA.NUM_CLASSES)).cuda()
             image_input = []
             for image in images:
-                image = image.numpy()
+                image = image.cpu().numpy()
                 # output = model(image)
                 # similarity = output
                 # tot_similarity += similarity

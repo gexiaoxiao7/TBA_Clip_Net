@@ -7,6 +7,7 @@ DATA:
     NUM_CLASSES: 102
     INPUT_SIZE: 224
     LABEL_LIST: 'labels/UCF-101_base_labels.csv'
+    IF_TEACHER: False
 MODEL:
     ARCH: ViT-B/16
 TRAIN:

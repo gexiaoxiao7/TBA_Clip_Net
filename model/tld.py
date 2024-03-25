@@ -1,50 +1,49 @@
-import torch
-import clip
 import numpy as np
-import cv2
-from PIL import Image
+import torch.nn as nn
 from ultralytics import YOLO
 
-def image_segmentation(path):
-    model = YOLO('Yolo-model/yolov8n.pt')
-    image = cv2.imread(path)
-    results = model(image)
-    dots = np.array(results[0].to('cpu').boxes.data)
 
-    # 加个判断，提取出老师的图像，避免学生图像干扰
-    temp = 0
-    p1 = -1
+class TeacherDetection(nn.Module):
+    def __init__(self, yolo_model):
+        super(TeacherDetection, self).__init__()
+        self.model = YOLO(yolo_model)
 
-    for idx,item in enumerate(dots):
-        if item[5] == 0 : # 判断是不是person
-            x1, y1, x2, y2 = item[:4]  # 提取检测框的坐标
-            if abs(y2-y1) > temp:
-                temp = abs(y2-y1)
-                p1 = idx
-    x1, y1, x2, y2 = dots[p1][:4]
-    cropped_image = image[int(y1):int(y2), int(x1):int(x2)]  # 裁剪图像
-    return cropped_image
+    def forward(self, image):
+        results = self.model(image)
+        boxes = np.array(results[0].to('cpu').boxes.data)
 
+        # Filter out boxes that are not 'person'
+        person_boxes = [box for box in boxes if box[5] == 0]
 
+        if not person_boxes:
+            return image
 
-def pose_estimation(cropped_image,texts):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model, preprocess = clip.load("ViT-B/32", device=device)
-    np.set_printoptions(suppress=True, precision=6)
-    image = preprocess(Image.fromarray(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB))).unsqueeze(0).to(device)
-    text = clip.tokenize(texts).to(device)
-    with torch.no_grad():
-        image_features = model.encode_image(image)
-        text_features = model.encode_text(text)
+        # Find the largest 'person' box
+        largest_box = max(person_boxes, key=lambda box: abs((box[3] - box[1]) * (box[2] - box[0])))
 
-        logits_per_image, logits_per_text = model(image, text)
-        probs = logits_per_image.softmax(dim=-1).cpu().numpy()
-    # 使用该下标从 B 中获取对应的值
-    result = probs[np.argmax(probs)]
-    return result
+        # Find other 'person' boxes that intersect with the largest box
+        intersecting_boxes = [box for box in person_boxes if self._intersect(box, largest_box)]
 
+        # Combine all boxes into a large box
+        large_box = self._combine_boxes([largest_box] + intersecting_boxes)
 
-if __name__ == "__main__":
-    cropped_image = image_segmentation('teacher_blackboard.jpg')
-    text = ['a person is writing on the blackboard', 'a person is not writing on the blackboard']
-    print(pose_estimation(cropped_image,text))
+        # Crop the image according to the large box
+        cropped_image = image[int(large_box[1]):int(large_box[3]), int(large_box[0]):int(large_box[2])]
+
+        return cropped_image
+
+    @staticmethod
+    def _intersect(box1, box2):
+        x1 = max(box1[0], box2[0])
+        y1 = max(box1[1], box2[1])
+        x2 = min(box1[2], box2[2])
+        y2 = min(box1[3], box2[3])
+        return x1 < x2 and y1 < y2
+
+    @staticmethod
+    def _combine_boxes(boxes):
+        x1 = min(box[0] for box in boxes)
+        y1 = min(box[1] for box in boxes)
+        x2 = max(box[2] for box in boxes)
+        y2 = max(box[3] for box in boxes)
+        return [x1, y1, x2, y2]

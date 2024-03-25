@@ -18,11 +18,13 @@ _C.DATA.NUM_FRAMES = 30
 _C.DATA.INPUT_SIZE = 224
 _C.DATA.NUM_CLASSES = 51
 _C.DATA.LABEL_LIST = 'labels/hmdb51_org_base_labels.csv'
+_C.DATA.IF_TEACHER = False
 # -----------------------------------------------------------------------------
 # Model settings
 # -----------------------------------------------------------------------------
 _C.MODEL = CN()
 _C.MODEL.ARCH = 'ViT-B/32'
+_C.MODEL.YOLO = 'Yolo-model/yolov8n.pt'
 
 # -----------------------------------------------------------------------------
 # Training settings
@@ -58,6 +60,10 @@ def update_config(config, args):
     _update_config_from_file(config, args.config)
 
     config.defrost()
+    if args.batch_size:
+        config.TRAIN.BATCH_SIZE = args.batch_size
+    if args.if_teacher:
+        config.DATA.IF_TEACHER = args.if_teacher
     # set local rank for distributed training
     # config.LOCAL_RANK = args.local_rank
     config.freeze()

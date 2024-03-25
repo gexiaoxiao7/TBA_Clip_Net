@@ -1,5 +1,5 @@
 DATA:
-    ROOT: 'E:\DATASETS\hmdb51_org\videos'
+    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
     TRAIN_FILE: 'datasets_splits/hmdb51/test_train.txt'
     VAL_FILE: 'datasets_splits/hmdb51/test_val.txt'
     DATASET: hmdb51
@@ -8,7 +8,8 @@ DATA:
     INPUT_SIZE: 224
     LABEL_LIST: 'labels/hmdb51_org_base_labels.csv'
 MODEL:
-    ARCH: ViT-B/32
+    ARCH: ViT-B/16
+    YOLO: 'Yolo-model/yolov8n.pt'
 TRAIN:
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
