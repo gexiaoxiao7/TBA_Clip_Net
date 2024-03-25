@@ -18,6 +18,7 @@ def parse_option():
     return args, config
 
 def main(config):
+
     train_data, val_data, train_loader, val_loader = build_dataloader(config)
     class_names = [class_name for i, class_name in val_data.classes]
     device = "cuda" if torch.cuda.is_available() else "cpu"
