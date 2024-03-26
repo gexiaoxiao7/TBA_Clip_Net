@@ -45,6 +45,8 @@ def validate(val_loader,model):
                 # tot_similarity += similarity
                 image_input.append(image)
             image_input = [item for sublist in image_input for item in sublist]
+            if image_input is None:
+                print(batch_data['filename'])
             similarity = model(image_input)
             values, indices = similarity[0].topk(1)
             values_1, indices_1 = similarity.topk(1, dim=-1)

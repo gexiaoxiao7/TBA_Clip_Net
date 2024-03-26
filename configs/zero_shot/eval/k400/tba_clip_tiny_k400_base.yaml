@@ -1,13 +1,13 @@
 DATA:
-#    ROOT: 'E:/DATASETS/tiny-Kinetics-400/videos/'
+#    ROOT: 'E:/DATASETS/tiny-Kinetics-400/tk400/'
     ROOT: '/root/autodl-fs/tk400/'
-    TRAIN_FILE: 'datasets_splits/UCF-101/train.txt'
-    VAL_FILE: 'datasets_splits/UCF-101/tiny-k400_dataset.txt'
+    TRAIN_FILE: 'datasets_splits/tiny-k400/train.txt'
+    VAL_FILE: 'datasets_splits/tiny-k400/val.txt'
     DATASET: tiny-K400
     NUM_FRAMES: 8
     NUM_CLASSES: 102
     INPUT_SIZE: 224
-    LABEL_LIST: 'labels/UCF-101_base_labels.csv'
+    LABEL_LIST: 'labels/tiny-Kinetics-400_base_labels.csv'
     IF_TEACHER: False
     INSTRUCTION_FT: True
 MODEL:
