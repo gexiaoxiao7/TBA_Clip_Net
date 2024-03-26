@@ -1,0 +1,26 @@
+DATA:
+    ROOT: 'E:/DATASETS/tiny-Kinetics-400/videos/'
+#    ROOT: '/root/autodl-fs/ucf101/'
+    TRAIN_FILE: 'datasets_splits/UCF-101/train.txt'
+    VAL_FILE: 'datasets_splits/UCF-101/tiny-k400_dataset.txt'
+    DATASET: tiny-K400
+    NUM_FRAMES: 8
+    NUM_CLASSES: 102
+    INPUT_SIZE: 224
+    LABEL_LIST: 'labels/UCF-101_base_labels.csv'
+    IF_TEACHER: False
+    INSTRUCTION_FT: True
+MODEL:
+    ARCH: ViT-B/16
+    YOLO: 'Yolo-model/yolov8n.pt'
+TRAIN:
+    IF_PRETRAINED: True
+    BATCH_SIZE: 4 # BS 64
+    ACCUMULATION_STEPS: 2
+    EPOCHS: 50
+    LR: 2.e-04
+#TRAINER:
+#  TBA_CLIP:
+#    ZS_EVAL: False # Make True only during test mode to evaluate zero-shot vanilla CLIP performance
+#    USE: "both" # both refers to complete fine-tuning of CLIP (text+image encoders)
+#SAVE_FREQ: 30
