@@ -1,6 +1,6 @@
 DATA:
-    ROOT: 'E:/DATASETS/tiny-Kinetics-400/videos/'
-#    ROOT: '/root/autodl-fs/ucf101/'
+#    ROOT: 'E:/DATASETS/tiny-Kinetics-400/videos/'
+    ROOT: '/root/autodl-fs/tk400/'
     TRAIN_FILE: 'datasets_splits/UCF-101/train.txt'
     VAL_FILE: 'datasets_splits/UCF-101/tiny-k400_dataset.txt'
     DATASET: tiny-K400
