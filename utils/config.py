@@ -31,8 +31,9 @@ _C.MODEL.YOLO = 'Yolo-model/yolov8n.pt'
 # Training settings
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
-_C.TRAIN.IF_PRETRAINED = True
+TRAINER = True
 _C.TRAIN.EPOCHS = 30
+_C.TRAIN.IF_PRETRAINED = True
 _C.TRAIN.WARMUP_EPOCHS = 5
 _C.TRAIN.WEIGHT_DECAY = 0.001
 _C.TRAIN.LR = 8.e-6
@@ -43,6 +44,12 @@ _C.TRAIN.OPTIMIZER = 'adamw'
 _C.TRAIN.OPT_LEVEL = 'O1'
 _C.TRAIN.AUTO_RESUME = False
 _C.TRAIN.USE_CHECKPOINT = False
+
+# -----------------------------------------------------------------------------
+# Trainer settings
+# -----------------------------------------------------------------------------
+_C.TRAINER = CN()
+_C.TRAINER.TRANS_FRAMES = True
 
 def _update_config_from_file(config, cfg_file):
     config.defrost()
@@ -68,6 +75,10 @@ def update_config(config, args):
         config.DATA.IF_TEACHER = args.if_teacher
     if args.instructionFT:
         config.DATA.INSTRUCTION_FT = args.instructionFT
+    if args.num_frames:
+        config.DATA.NUM_FRAMES = args.num_frames
+    if args.arch:
+        config.MODEL.ARCH = args.arch
     # set local rank for distributed training
     # config.LOCAL_RANK = args.local_rank
     config.freeze()

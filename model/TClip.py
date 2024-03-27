@@ -63,7 +63,7 @@ class TextEncoder(nn.Module):
 
 
 class TBA_Clip(nn.Module):
-    def __init__(self, clip_model, preprocess, classnames, device):
+    def __init__(self, clip_model, preprocess, classnames, device,config):
         super().__init__()
         self.model = clip_model
         self.prompts_learner = Prompts_build(classnames = classnames, device = device)
@@ -71,18 +71,18 @@ class TBA_Clip(nn.Module):
         self.text_encoder = TextEncoder(clip_model,device)
         self.image_encoder = VideoEncoder(clip_model, preprocess, device)
         self.dtype = clip_model.dtype
+        self.config = config
         self.classnames = classnames
     def forward(self, image):
         prompts = self.prompts_learner()
-        video_features = self.image_encoder(image)
+        image_feature = self.image_encoder(image) if self.config.TRAINER.TRANS_FRAMES else self.model.encode_image(image)
         text_features = self.text_encoder(prompts)
-        video_features /= video_features.norm(dim=-1, keepdim=True)
+        image_feature /= image_feature.norm(dim=-1, keepdim=True)
         text_features /= text_features.norm(dim=-1, keepdim=True)
-        similarity = (100.0 * video_features @ text_features.T).softmax(dim=-1)
+        similarity = (100.0 * image_feature @ text_features.T).softmax(dim=-1)
         return similarity
-
 
 def returnCLIP(config,classnames,device):
     clip_model, preprocess = clip.load(config.MODEL.ARCH, device = device)
-    model = TBA_Clip(clip_model, preprocess,classnames,device)
+    model = TBA_Clip(clip_model, preprocess,classnames,device,config)
     return model

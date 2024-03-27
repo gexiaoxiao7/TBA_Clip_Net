@@ -11,6 +11,8 @@ def parse_option():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', '-cfg', required=True, type=str, default='configs/zero_shot/eval/hmdb/tba_clip_hmdb51_base.yaml')
     parser.add_argument('--batch-size', type=int)
+    parser.add_argument('--arch', type=str)
+    parser.add_argument('--num_frames', type=int)
     parser.add_argument('--if_teacher', type=bool)
     parser.add_argument('--instructionFT', type=bool)
     args = parser.parse_args()
@@ -23,11 +25,11 @@ def main(config):
     class_names = [class_name for i, class_name in val_data.classes]
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = tbaclip.returnCLIP(config,class_names,device)
-    acc1 = validate(val_loader, model)
+    acc1 = validate(val_loader, model,config)
     print(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
 
 @torch.no_grad()
-def validate(val_loader,model):
+def validate(val_loader,model,config):
     b = val_loader.batch_size
     acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
     with torch.no_grad():
@@ -36,7 +38,7 @@ def validate(val_loader,model):
             images = batch_data['data']
             label_id = batch_data['label']
             # print(label_id[0])
-            # tot_similarity = torch.zeros((b, config.DATA.NUM_CLASSES)).cuda()
+            tot_similarity = torch.zeros((b, config.DATA.NUM_CLASSES)).cuda()
             image_input = []
             for image in images:
                 image = image.cpu().numpy()
@@ -45,12 +47,11 @@ def validate(val_loader,model):
                 # tot_similarity += similarity
                 image_input.append(image)
             image_input = [item for sublist in image_input for item in sublist]
-            if image_input is None:
-                print(batch_data['filename'])
             similarity = model(image_input)
-            values, indices = similarity[0].topk(1)
-            values_1, indices_1 = similarity.topk(1, dim=-1)
-            values_5, indices_5 = similarity.topk(5, dim=-1)
+            for item in similarity:
+                tot_similarity += item
+            values_1, indices_1 = tot_similarity.topk(1, dim=-1)
+            values_5, indices_5 = tot_similarity.topk(5, dim=-1)
             acc1, acc5 = 0, 0
             for i in range(b):
                 if indices_1[i] == label_id[i]:
