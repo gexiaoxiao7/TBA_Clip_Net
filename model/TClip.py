@@ -2,7 +2,7 @@ from clip import clip
 import numpy as np
 import torch
 import torch.nn.functional as F
-from model.tp import  TemporalPooling
+from model.tp import TemporalPooling
 from torch import nn
 from PIL import Image
 import clip
