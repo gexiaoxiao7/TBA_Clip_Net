@@ -4,14 +4,14 @@ DATA:
     TRAIN_FILE: 'datasets_splits/tiny-k400/train.txt'
     VAL_FILE: 'datasets_splits/tiny-k400/val.txt'
     DATASET: tiny-K400
-    NUM_FRAMES: 8
+    NUM_FRAMES: 16
     NUM_CLASSES: 102
     INPUT_SIZE: 224
     LABEL_LIST: 'labels/tiny-Kinetics-400_base_labels.csv'
     IF_TEACHER: False
     INSTRUCTION_FT: True
 MODEL:
-    ARCH: ViT-B/16
+    ARCH: ViT-L/14
     YOLO: 'Yolo-model/yolov8n.pt'
 TRAIN:
     IF_PRETRAINED: True
