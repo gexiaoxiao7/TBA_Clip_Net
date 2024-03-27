@@ -47,9 +47,12 @@ def validate(val_loader,model,config):
                 # tot_similarity += similarity
                 image_input.append(image)
             image_input = [item for sublist in image_input for item in sublist]
-            similarity = model(image_input)
-            for item in similarity:
-                tot_similarity += item
+            if config.TRAINER.TRANS_FRAMES:
+                tot_similarity = model(image_input)
+            else:
+                for image in image_input:
+                    similarity = model(image)
+                    tot_similarity += similarity
             values_1, indices_1 = tot_similarity.topk(1, dim=-1)
             values_5, indices_5 = tot_similarity.topk(5, dim=-1)
             acc1, acc5 = 0, 0
