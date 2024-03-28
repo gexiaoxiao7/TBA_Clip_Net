@@ -8,19 +8,18 @@ DATA:
     NUM_CLASSES: 102
     INPUT_SIZE: 224
     LABEL_LIST: 'labels/tiny-Kinetics-400_base_labels.csv'
-    IF_TEACHER: False
-    INSTRUCTION_FT: True
+    IF_TEACHER: 0
 MODEL:
     ARCH: ViT-L/14
     YOLO: 'Yolo-model/yolov8n.pt'
 TRAIN:
-    IF_PRETRAINED: True
+    IF_PRETRAINED: 1
     BATCH_SIZE: 4 # BS 64
     ACCUMULATION_STEPS: 2
     EPOCHS: 50
     LR: 2.e-04
-#TRAINER:
-#  TBA_CLIP:
+TRAINER:
 #    ZS_EVAL: False # Make True only during test mode to evaluate zero-shot vanilla CLIP performance
 #    USE: "both" # both refers to complete fine-tuning of CLIP (text+image encoders)
-#SAVE_FREQ: 30
+    TRANS_FRAMES: 1
+OUTPUT: '/root/auto-fs/zero_shot.csv'

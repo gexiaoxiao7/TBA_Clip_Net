@@ -1,21 +1,19 @@
 DATA:
     ROOT: 'E:/DATASETS/hmdb51_org/videos/'
-    # remote path
 #    ROOT: '/root/autodl-fs/videos/'
     TRAIN_FILE: 'datasets_splits/hmdb51/test_train.txt'
     VAL_FILE: 'datasets_splits/hmdb51/test_val.txt'
     DATASET: hmdb51
-    NUM_FRAMES: 8
+    NUM_FRAMES: 16
     NUM_CLASSES: 51
     INPUT_SIZE: 224
     LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
-    IF_TEACHER: False
-    INSTRUCTION_FT: True
+    IF_TEACHER: 0
 MODEL:
     ARCH: ViT-B/16
     YOLO: 'Yolo-model/yolov8n.pt'
 TRAIN:
-    IF_PRETRAINED: True
+    IF_PRETRAINED: 1
     BATCH_SIZE: 4 # BS 64
     ACCUMULATION_STEPS: 2
     EPOCHS: 50
@@ -23,5 +21,5 @@ TRAIN:
 TRAINER:
 #    ZS_EVAL: False # Make True only during test mode to evaluate zero-shot vanilla CLIP performance
 #    USE: "both" # both refers to complete fine-tuning of CLIP (text+image encoders)
-    TRANS_FRAMES: False
-#SAVE_FREQ: 30
+    TRANS_FRAMES: 1
+OUTPUT: 'output.csv'

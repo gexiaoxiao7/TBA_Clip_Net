@@ -13,9 +13,10 @@ def parse_option():
     parser.add_argument('--batch-size', type=int)
     parser.add_argument('--arch', type=str)
     parser.add_argument('--num_frames', type=int)
-    parser.add_argument('--if_teacher', type=bool)
-    parser.add_argument('--instructionFT', type=bool)
-    parser.add_argument('--trans_frames', type=bool)
+    parser.add_argument('--if_teacher', type=int)
+    parser.add_argument('--instructionFT', type=int)
+    parser.add_argument('--trans_frames', type=int)
+    parser.add_argument('--output', type=str)
     args = parser.parse_args()
     config = get_config(args)
     return args, config
@@ -48,7 +49,7 @@ def validate(val_loader,model,config):
                 # tot_similarity += similarity
                 image_input.append(image)
             image_input = [item for sublist in image_input for item in sublist]
-            if config.TRAINER.TRANS_FRAMES:
+            if config.TRAINER.TRANS_FRAMES == 1:
                 tot_similarity = model(image_input)
             else:
                 for image in image_input:
@@ -69,15 +70,20 @@ def validate(val_loader,model,config):
                         f'Acc@1: {acc1_meter.avg:.3f}\t')
         print(f'Acc@1: {acc1_meter.avg:.3f}\t'
               f'Acc@5: {acc5_meter.avg:.3f}\t')
+        #如果没有输出文件，创建一个
+        if not os.path.exists(config.OUTPUT):
+            with open(config.OUTPUT, 'w') as f:
+                pass
         # Check if the file is empty
-        if os.stat(config.OUT_PUT).st_size == 0:
-            with open(config.OUT_PUT, 'a') as f:
+        if os.stat(config.OUTPUT).st_size == 0:
+            with open(config.OUTPUT, 'a') as f:
                 # Write the column names
-                f.write('Model,Num_Frames,Acc1,Acc5,Dataset\n')
-        with open(config.OUT_PUT, 'a') as f:
-            f.write(f'{config.MODEL.ARCH},{config.NUM_FRAMES},{acc1_meter.avg:.3f},{acc5_meter.avg:.3f},{config.DATA.DATASET}\n')
+                f.write('Model,Trans_frames,If_teacher,Num_Frames,Acc1,Acc5,Dataset\n')
+        with open(config.OUTPUT, 'a') as f:
+            f.write(f'{config.MODEL.ARCH},{config.TRAINER.TRANS_FRAMES},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1_meter.avg:.3f},{acc5_meter.avg:.3f},{config.DATA.DATASET}\n')
         return acc1_meter.avg
 
 if __name__ == '__main__':
     args, config = parse_option()
+
     main(config)

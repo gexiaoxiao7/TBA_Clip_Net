@@ -73,8 +73,7 @@ def build_dataloader(config):
     val_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.VAL_FILE)
     val_loader = DataLoader(val_data, batch_size=1)
     print("val_data_finished!")
-    if config.TRAIN.IF_PRETRAINED == False:
-
+    if config.TRAIN.IF_PRETRAINED == 0:
         train_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE)
         train_loader = DataLoader(train_data, batch_size=config.TRAIN.BATCH_SIZE)
         print("train_data finished!")

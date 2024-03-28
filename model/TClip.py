@@ -25,8 +25,8 @@ class VideoEncoder(nn.Module):
         video_info = images
         video_info = [torch.from_numpy(x).to(self.device).type(self.dtype) for x in video_info]
         image_features = [self.model.encode_image(x) for x in video_info]
-        image_features = torch.stack(image_features, dim=1)
-        temporal_pooling = TemporalPooling(feature_dim=image_features.shape[-1]).to(self.device)
+        image_features = torch.stack(image_features, dim=1).to(torch.half)
+        temporal_pooling = TemporalPooling(feature_dim=image_features.shape[-1],nhead=8,num_layers=12).to(self.device).to(torch.half)
         video_features = temporal_pooling(image_features)
         return video_features
 
@@ -76,7 +76,7 @@ class TBA_Clip(nn.Module):
         self.classnames = classnames
     def forward(self, image):
         prompts = self.prompts_learner()
-        image_feature = self.image_encoder(image) if self.config.TRAINER.TRANS_FRAMES else (
+        image_feature = self.image_encoder(image) if self.config.TRAINER.TRANS_FRAMES == 1 else (
             self.model.encode_image(torch.from_numpy(image).to(self.dtype).to(self.device)))
         text_features = self.text_encoder(prompts)
         image_feature /= image_feature.norm(dim=-1, keepdim=True)
