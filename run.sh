@@ -34,3 +34,4 @@ python main.py -cfg ./configs/zero_shot/eval/ucf101/tba_clip_ucf101_base.yaml --
 python main.py -cfg ./configs/zero_shot/eval/ucf101/tba_clip_ucf101_base.yaml --trans_frames 0 --n_frames 8 --arch ViT-L/14@336px
 python main.py -cfg ./configs/zero_shot/eval/ucf101/tba_clip_ucf101_base.yaml --trans_frames 0 --n_frames 16 --arch ViT-L/14@336px
 python main.py -cfg ./configs/zero_shot/eval/ucf101/tba_clip_ucf101_base.yaml --trans_frames 0 --n_frames 32 --arch ViT-L/14@336px
+shutdown -h now
