@@ -1,13 +1,13 @@
 DATA:
-#    ROOT: 'E:/DATASETS/tiny-Kinetics-400/tk400/'
-    ROOT: '/root/autodl-fs/tk400/'
-    TRAIN_FILE: 'datasets_splits/tiny-k400/train.txt'
-    VAL_FILE: 'datasets_splits/tiny-k400/tiny-k400_dataset.txt'
-    DATASET: tiny-K400
+#    ROOT: 'E:/DATASETS/ucf101/ucf101/'
+    ROOT: '/root/autodl-fs/ucf101/'
+    TRAIN_FILE: 'datasets_splits/UCF-101/base_train.txt'
+    VAL_FILE: 'datasets_splits/UCF-101/split1_val.txt'
+    DATASET: UCF-101
     NUM_FRAMES: 16
-    NUM_CLASSES: 400
+    NUM_CLASSES: 102
     INPUT_SIZE: 224
-    LABEL_LIST: 'labels/tiny-Kinetics-400_base_labels.csv'
+    LABEL_LIST: 'labels/UCF-101_base_labels.csv'
     IF_TEACHER: 0
 MODEL:
     ARCH: ViT-L/14

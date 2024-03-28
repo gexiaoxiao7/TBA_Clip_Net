@@ -5,7 +5,7 @@ DATA:
     VAL_FILE: 'datasets_splits/UCF-101/test_val.txt'
     DATASET: UCF-101
     NUM_FRAMES: 8
-    NUM_CLASSES: 102
+    NUM_CLASSES: 101
     INPUT_SIZE: 224
     LABEL_LIST: 'labels/UCF-101_base_labels.csv'
     IF_TEACHER: False

@@ -8,6 +8,8 @@ from utils.config import get_config
 from dataSets.build import build_dataloader
 from utils.tools import AverageMeter
 import datetime
+import torch.nn as nn
+from utils.optimizer import build_optimizer, build_scheduler
 
 def parse_option():
     parser = argparse.ArgumentParser()
@@ -29,8 +31,27 @@ def main(config):
     class_names = [class_name for i, class_name in val_data.classes]
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = tbaclip.returnCLIP(config,class_names,device)
-    acc1 = validate(val_loader, model,config)
-    print(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
+
+    # training
+    criterion = nn.CrossEntropyLoss()
+    optimizer = build_optimizer(config, model)
+    lr_scheduler = build_scheduler(config, optimizer, len(train_loader))
+
+    start_epoch, max_accuracy = 0, 0.0
+    for epoch in range(start_epoch, config.TRAIN.EPOCHS):
+        train_loader.sampler.set_epoch(epoch)
+        train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_loader, config)
+
+        if epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1):
+            acc1 = validate(val_loader, model, config)
+            from loguru import logger
+            logger.info(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
+            is_best = acc1 > max_accuracy
+            max_accuracy = max(max_accuracy, acc1)
+            logger.info(f'Max accuracy: {max_accuracy:.2f}%')
+
+    acc1 = validate(val_loader, model, config)
+    logger.info(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
 
 def train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_loader, config, mixup_fn):
     model.train()
