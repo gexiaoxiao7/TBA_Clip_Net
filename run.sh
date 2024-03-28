@@ -1,3 +1,4 @@
+python main.py -cfg ./configs/zero_shot/eval/hmdb/tba_clip_hmdb51_base.yaml --trans_frames 0 --num_frames 32 --arch ViT-L/14@336px
 python main.py -cfg ./configs/zero_shot/eval/k400/tba_clip_tiny_k400_base.yaml --trans_frames 0 --num_frames 8 --arch ViT-B/16
 python main.py -cfg ./configs/zero_shot/eval/k400/tba_clip_tiny_k400_base.yaml --trans_frames 0 --num_frames 16 --arch ViT-B/16
 python main.py -cfg ./configs/zero_shot/eval/k400/tba_clip_tiny_k400_base.yaml --trans_frames 0 --num_frames 32 --arch ViT-B/16
