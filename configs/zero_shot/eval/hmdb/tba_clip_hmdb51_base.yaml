@@ -24,4 +24,4 @@ TRAINER:
 #    ZS_EVAL: False # Make True only during test mode to evaluate zero-shot vanilla CLIP performance
 #    USE: "both" # both refers to complete fine-tuning of CLIP (text+image encoders)
     TRANS_FRAMES: True
-SAVE_FREQ: 30
+OUT_PUT: '/root/autodl-fs/output.txt'

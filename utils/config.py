@@ -51,6 +51,11 @@ _C.TRAIN.USE_CHECKPOINT = False
 _C.TRAINER = CN()
 _C.TRAINER.TRANS_FRAMES = True
 
+# -----------------------------------------------------------------------------
+# Output settings
+# -----------------------------------------------------------------------------
+_C.OUTPUT = ''
+
 def _update_config_from_file(config, cfg_file):
     config.defrost()
     with open(cfg_file, 'r') as f:
@@ -79,6 +84,8 @@ def update_config(config, args):
         config.DATA.NUM_FRAMES = args.num_frames
     if args.arch:
         config.MODEL.ARCH = args.arch
+    if args.trans_frames:
+        config.TRAINER.TRANS_FRAMES = args.trans_frames
     # set local rank for distributed training
     # config.LOCAL_RANK = args.local_rank
     config.freeze()
