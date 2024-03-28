@@ -2,7 +2,7 @@ DATA:
 #    ROOT: 'E:/DATASETS/tiny-Kinetics-400/tk400/'
     ROOT: '/root/autodl-fs/tk400/'
     TRAIN_FILE: 'datasets_splits/tiny-k400/train.txt'
-    VAL_FILE: 'datasets_splits/tiny-k400/val.txt'
+    VAL_FILE: 'datasets_splits/tiny-k400/tiny-k400_dataset.txt'
     DATASET: tiny-K400
     NUM_FRAMES: 16
     NUM_CLASSES: 102

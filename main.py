@@ -3,9 +3,11 @@ import clip
 import torch
 import os
 import argparse
+import time
 from utils.config import get_config
 from dataSets.build import build_dataloader
 from utils.tools import AverageMeter
+import datetime
 
 def parse_option():
     parser = argparse.ArgumentParser()
@@ -29,6 +31,50 @@ def main(config):
     model = tbaclip.returnCLIP(config,class_names,device)
     acc1 = validate(val_loader, model,config)
     print(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
+
+def train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_loader, config, mixup_fn):
+    model.train()
+    optimizer.zero_grad()
+
+    num_steps = len(train_loader)
+    batch_time = AverageMeter()
+    tot_loss_meter = AverageMeter()
+    start = time.time()
+    end = time.time()
+    for idx, batch_data in enumerate(train_loader):
+        images = batch_data['data']
+        label_id = batch_data['label']
+        output = model(images)
+        total_loss = criterion(output, label_id)
+        total_loss = total_loss / config.TRAIN.ACCUMULATION_STEPS
+        if config.TRAIN.ACCUMULATION_STEPS == 1:
+            optimizer.zero_grad()
+        total_loss.backward()
+        if config.TRAIN.ACCUMULATION_STEPS > 1:
+            if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
+                optimizer.step()
+                optimizer.zero_grad()
+                lr_scheduler.step_update(epoch * num_steps + idx)
+        else:
+            optimizer.step()
+            lr_scheduler.step_update(epoch * num_steps + idx)
+        tot_loss_meter.update(total_loss.item(), len(label_id))
+        batch_time.update(time.time() - end)
+        end = time.time()
+        if idx % config.PRINT_FREQ == 0:
+            lr = optimizer.param_groups[0]['lr']
+            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+            etas = batch_time.avg * (num_steps - idx)
+            print(
+                f'Train: [{epoch}/{config.TRAIN.EPOCHS}][{idx}/{num_steps}]\t'
+                f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.9f}\t'
+                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
+                f'tot_loss {tot_loss_meter.val:.4f} ({tot_loss_meter.avg:.4f})\t'
+                f'mem {memory_used:.0f}MB')
+        epoch_time = time.time() - start
+        print(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+
+
 
 @torch.no_grad()
 def validate(val_loader,model,config):
@@ -85,5 +131,4 @@ def validate(val_loader,model,config):
 
 if __name__ == '__main__':
     args, config = parse_option()
-
     main(config)

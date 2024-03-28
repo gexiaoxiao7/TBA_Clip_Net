@@ -1,90 +1,116 @@
-import torch
-import clip
-import numpy as np
-from PIL import Image
-import cv2
-from model.tp import TemporalPooling
-import pandas as pd
 import os
+from PIL import Image
+import numpy as np
+import clip
+from loguru import logger
+from torch.utils.data import Dataset, DataLoader, ConcatDataset
+import torch.optim as optim
+from torch.optim import lr_scheduler
+import torch.nn as nn
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+class YourDataset(Dataset):
+    def __init__(self,img_root,meta_root,is_train,preprocess):
+        # 1.根目录(根据自己的情况更改)
+        self.img_root = img_root
+        self.meta_root = meta_root
+        # 2.训练图片和测试图片地址(根据自己的情况更改)
+        self.train_set_file = os.path.join(meta_root,'train.txt')
+        self.test_set_file = os.path.join(meta_root,'test.txt')
+        # 3.训练 or 测试(根据自己的情况更改)
+        self.is_train = is_train
+        # 4.处理图像
+        self.img_process = preprocess
+        # 5.获得数据(根据自己的情况更改)
+        self.samples = []
+        self.sam_labels = []
+        # 5.1 训练还是测试数据集
+        self.read_file = ""
+        if is_train:
+            self.read_file = self.train_set_file
+        else:
+            self.read_file = self.test_set_file
+		# 5.2 获得所有的样本(根据自己的情况更改)
+        with open(self.read_file,'r') as f:
+            for line in f:
+                img_path = os.path.join(self.img_root,line.strip() + '.jpg')
+                label = line.strip().split('/')[0]
+                label = label.replace("_"," ")
+                label = "photo if " + label
+                self.samples.append(img_path)
+                self.sam_labels.append(label)
+        # 转换为token
+        self.tokens = clip.tokenize(self.sam_labels)
 
-classes_all = pd.read_csv('labels/hmdb51_org_base_labels.csv')
-classnames = classes_all.values.tolist()
-classnames = [class_name for i, class_name in classnames]
-#修改classnames中的kiss为kissing
-classnames[classnames.index('kiss')] = 'kissing'
+    def __len__(self):
+        return len(self.samples)
 
-# print(classnames)
-def get_filenames_in_dir(directory):
-    return [f for f in os.listdir(directory) if os.path.isfile(os.path.join(directory, f))]
+    def __getitem__(self, idx):
+        img_path = self.samples[idx]
+        token = self.tokens[idx]
+        # 加载图像
+        image = Image.open(img_path).convert('RGB')
+        # 对图像进行转换
+        image = self.img_process(image)
+        return image,token
+# 创建模型
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+net, preprocess = clip.load("RN50",device=device,jit=False)
 
-directory = 'E:/DATASETS/hmdb51_org/kiss'  # 替换为你的目录路径
-filenames = get_filenames_in_dir(directory)
-def get_video_data(path):
-    video_capture = cv2.VideoCapture(path)
-    total_frames = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
-    frames = []
-    frame_ids = np.linspace(0, total_frames - 1, 8, dtype=np.int)
-    for i in range(total_frames):
-        ret, frame = video_capture.read()
-        if not ret:
-            break
-        if i in frame_ids:
-            frames.append(frame)
-    video_capture.release()
-    return frames
+optimizer = optim.Adam(net.parameters(), lr=1e-6,betas=(0.9,0.98),eps=1e-6,weight_decay=0.001)
+scheduler = lr_scheduler.StepLR(
+        optimizer, step_size=10, gamma=0.1)
 
+# 创建损失函数
+loss_img = nn.CrossEntropyLoss()
+loss_txt = nn.CrossEntropyLoss()
+# 加载数据集
+your_dataset = YourDataset(img_root= '/images',
+                                          meta_root= '/meta',
+                                          is_train=True,preprocess=preprocess)
+dataset_size_your = len(your_dataset)
+your_dataloader = DataLoader(your_dataset,batch_size=4,shuffle=True,num_workers=4,pin_memory=False)
 
-
-model, preprocess = clip.load("ViT-B/32", device=device)
-np.set_printoptions(suppress=True, precision=6)
-
-total = 0
-acc = 0
-for idx, filename in enumerate(filenames):
-    path = os.path.join(directory, filename)
-    image_input_lists = get_video_data(path)
-    image_inputs = [preprocess(Image.fromarray(cv2.cvtColor(c, cv2.COLOR_BGR2RGB))).unsqueeze(0).to(device) for c in image_input_lists]
-    image_features = [model.encode_image(x).to(device) for x in image_inputs]
-    image_features = torch.stack(image_features, dim=1)
-
-    # print(image_features.shape)
-    temporal_pooling = TemporalPooling(feature_dim=image_features.shape[-1]).to(device)
-    text_inputs = torch.cat([clip.tokenize(f"a photo of {c}") for c in classnames]).to(device)
-    with torch.no_grad():
-        video_features = temporal_pooling(image_features)
-        text_features = model.encode_text(text_inputs)
-    video_features /= video_features.norm(dim=-1, keepdim=True)
-    text_features /= text_features.norm(dim=-1, keepdim=True)
-    similarity = (100.0 * video_features @ text_features.T).softmax(dim=-1)
-
-    values, indices = similarity[0].topk(1)
-    # print(indices)
-    if classnames[indices.item()] == 'kissing':
-        acc += 1
-    total += 1
-    if idx % 10 == 0:
-        print(f'Accuracy: {acc/total*100:.2f}%')
-
-print(f'Accuracy: {acc/total*100:.2f}%')
-# print(image_input_lists)
-# print(text_inputs.shape)
-
-# text = clip.tokenize(["a teacher is writing","a teacher is not writing"]).to(device)
-
-# with torch.no_grad():
-
-# #
-# #
-# # Pick the top 5 most similar labels for the image
-# image_features /= image_features.norm(dim=-1, keepdim=True)
-# text_features /= text_features.norm(dim=-1, keepdim=True)
-# similarity = (100.0 * image_features @ text_features.T).softmax(dim=-1)
-# print(similarity)
-# values, indices = similarity[0]
-# print(values)
-# print(indices)
-# print("\nTop predictions:\n")
-# for value, index in zip(values, indices):
-#     print(f"{text_inputs_list[index]:>16s}: {100 * value.item():.2f}%")
+phase = "train"
+model_name = "your model name"
+ckt_gap = 4
+for epoch in range(st,args.epoches):
+    scheduler.step()
+    total_loss = 0
+    batch_num = 0
+    # 使用混合精度，占用显存更小
+    with torch.cuda.amp.autocast(enabled=True):
+        for images,label_tokens in your_dataloader:
+            # 将图片和标签token转移到device设备
+            images = images.to(device)
+            label_tokens = label_tokens.to(device)
+            batch_num += 1
+            # 优化器梯度清零
+            optimizer.zero_grad()
+            with torch.set_grad_enabled(phase == "train"):
+                logits_per_image, logits_per_text = net(images, label_tokens)
+                ground_truth = torch.arange(len(images),dtype=torch.long,device=device)
+                cur_loss = (loss_img(logits_per_image,ground_truth) + loss_txt(logits_per_text,ground_truth))/2
+                total_loss += cur_loss
+                if phase == "train":
+                    cur_loss.backward()
+                    if device == "cpu":
+                        optimizer.step()
+                    else:
+                        optimizer.step()
+                        clip.model.convert_weights(net)
+            if batch_num % 4 == 0:
+                logger.info('{} epoch:{} loss:{}'.format(phase,epoch,cur_loss))
+        epoch_loss = total_loss / dataset_size_food101
+        torch.save(net.state_dict(),f"{model_name}_epoch_{epoch}.pth")
+        logger.info(f"weights_{epoch} saved")
+        if epoch % ckt_gap == 0:
+            checkpoint_path = f"{model_name}_ckt.pth"
+            checkpoint = {
+                'it': epoch,
+                'network': net.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict()}
+            torch.save(checkpoint, checkpoint_path)
+            logger.info(f"checkpoint_{epoch} saved")
+        logger.info('{} Loss: {:.4f}'.format(
+            phase, epoch_loss))
