@@ -22,4 +22,4 @@ TRAINER:
 #    ZS_EVAL: False # Make True only during test mode to evaluate zero-shot vanilla CLIP performance
 #    USE: "both" # both refers to complete fine-tuning of CLIP (text+image encoders)
     TRANS_FRAMES: 1
-OUTPUT: '/root/auto-fs/zero_shot.csv'
+OUTPUT: '/root/autodl-fs/zero_shot.csv'
