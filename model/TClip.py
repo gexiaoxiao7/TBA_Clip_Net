@@ -72,10 +72,12 @@ class TBA_Clip(nn.Module):
         self.image_encoder = VideoEncoder(clip_model, preprocess, device)
         self.dtype = clip_model.dtype
         self.config = config
+        self.device = device
         self.classnames = classnames
     def forward(self, image):
         prompts = self.prompts_learner()
-        image_feature = self.image_encoder(image) if self.config.TRAINER.TRANS_FRAMES else self.model.encode_image(image)
+        image_feature = self.image_encoder(image) if self.config.TRAINER.TRANS_FRAMES else (
+            self.model.encode_image(torch.from_numpy(image).to(self.dtype).to(self.device)))
         text_features = self.text_encoder(prompts)
         image_feature /= image_feature.norm(dim=-1, keepdim=True)
         text_features /= text_features.norm(dim=-1, keepdim=True)

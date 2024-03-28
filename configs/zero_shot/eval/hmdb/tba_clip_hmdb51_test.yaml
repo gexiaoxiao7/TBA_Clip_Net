@@ -12,7 +12,7 @@ DATA:
     IF_TEACHER: False
     INSTRUCTION_FT: True
 MODEL:
-    ARCH: ViT-L/14
+    ARCH: ViT-B/16
     YOLO: 'Yolo-model/yolov8n.pt'
 TRAIN:
     IF_PRETRAINED: True
@@ -23,5 +23,5 @@ TRAIN:
 TRAINER:
 #    ZS_EVAL: False # Make True only during test mode to evaluate zero-shot vanilla CLIP performance
 #    USE: "both" # both refers to complete fine-tuning of CLIP (text+image encoders)
-    TRANS_FRAMES: True
+    TRANS_FRAMES: False
 #SAVE_FREQ: 30
