@@ -1,15 +1,16 @@
 DATA:
     ROOT: 'E:/DATASETS/hmdb51_org/videos/'
-    TRAIN_FILE: 'datasets_splits/hmdb_splits/hmdb51_org_2shots.txt'
-    VAL_FILE: 'datasets_splits/hmdb_splits/base_val.txt'
+    TRAIN_FILE: 'datasets_splits/hmdb51/hmdb51_org_2shots.txt'
+    VAL_FILE: 'datasets_splits/hmdb51/base_val.txt'
     DATASET: hmdb51
     NUM_FRAMES: 16
     NUM_CLASSES: 51
-    LABEL_LIST: 'labels/hmdb_51_labels.csv'
+    LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
     IF_TEACHER: 0
 MODEL:
     ARCH: ViT-B/16
     YOLO: 'Yolo-model/yolov8n.pt'
+    OUTPUT: 'models'
 TRAIN:
     IF_PRETRAINED: 0
     BATCH_SIZE: 1 # BS 64
@@ -20,4 +21,6 @@ TRAINER:
 #    ZS_EVAL: False # Make True only during test mode to evaluate zero-shot vanilla CLIP performance
 #    USE: "both" # both refers to complete fine-tuning of CLIP (text+image encoders)
     TRANS_FRAMES: 1
+    SAVE_FREQ: 10
+    PRINT_FREQ: 5
 OUTPUT: 'few_shot.csv'

@@ -1,0 +1,25 @@
+DATA:
+#    ROOT: 'E:/DATASETS/ucf101/ucf101/'
+    ROOT: '~/autodl-fs/ucf101_split2/'
+    TRAIN_FILE: 'datasets_splits/UCF-101/base_train.txt'
+    VAL_FILE: 'datasets_splits/UCF-101/split2_val.txt'
+    DATASET: UCF-101
+    NUM_FRAMES: 16
+    NUM_CLASSES: 102
+    INPUT_SIZE: 224
+    LABEL_LIST: 'labels/UCF-101_base_labels.csv'
+    IF_TEACHER: 0
+MODEL:
+    ARCH: ViT-L/14
+    YOLO: 'Yolo-model/yolov8n.pt'
+TRAIN:
+    IF_PRETRAINED: 1
+    BATCH_SIZE: 4 # BS 64
+    ACCUMULATION_STEPS: 2
+    EPOCHS: 50
+    LR: 2.e-04
+TRAINER:
+#    ZS_EVAL: False # Make True only during test mode to evaluate zero-shot vanilla CLIP performance
+#    USE: "both" # both refers to complete fine-tuning of CLIP (text+image encoders)
+    TRANS_FRAMES: 1
+OUTPUT: '~/autodl-fs/zero_shot.csv'

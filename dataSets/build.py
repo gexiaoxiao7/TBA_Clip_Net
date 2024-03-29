@@ -66,16 +66,36 @@ class VideoDataset():
     def __getitem__(self, idx):
         return self.video_info[idx]
 
+class SubsetRandomSampler(torch.utils.data.Sampler):
+    r"""Samples elements randomly from a given list of indices, without replacement.
+
+    Arguments:
+        indices (sequence): a sequence of indices
+    """
+
+    def __init__(self, indices):
+        self.epoch = 0
+        self.indices = indices
+    def __iter__(self):
+        return (self.indices[i] for i in torch.randperm(len(self.indices)))
+    def __len__(self):
+        return len(self.indices)
+    def set_epoch(self, epoch):
+        self.epoch = epoch
 
 def build_dataloader(config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     _, preprocess = clip.load(config.MODEL.ARCH, device=device)
     val_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.VAL_FILE)
-    val_loader = DataLoader(val_data, batch_size=1)
+    indices = list(range(len(val_data)))
+    sampler = SubsetRandomSampler(indices)
+    val_loader = DataLoader(val_data, batch_size=1,sampler=sampler)
     print("val_data_finished!")
     if config.TRAIN.IF_PRETRAINED == 0:
         train_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE)
-        train_loader = DataLoader(train_data, batch_size=config.TRAIN.BATCH_SIZE)
+        indices = list(range(len(train_data)))
+        sampler = SubsetRandomSampler(indices)
+        train_loader = DataLoader(train_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler)
         print("train_data finished!")
         return train_data, val_data, train_loader, val_loader
     else:

@@ -10,6 +10,7 @@ from utils.tools import AverageMeter
 import datetime
 import torch.nn as nn
 from utils.optimizer import build_optimizer, build_scheduler
+from utils.tools import epoch_saving
 
 def parse_option():
     parser = argparse.ArgumentParser()
@@ -31,29 +32,32 @@ def main(config):
     class_names = [class_name for i, class_name in val_data.classes]
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = tbaclip.returnCLIP(config,class_names,device)
+    if config.TRAIN.IF_PRETRAINED == 0:
+        # training
+        criterion = nn.CrossEntropyLoss()
+        optimizer = build_optimizer(config, model)
+        lr_scheduler = build_scheduler(config, optimizer, len(train_loader))
 
-    # training
-    criterion = nn.CrossEntropyLoss()
-    optimizer = build_optimizer(config, model)
-    lr_scheduler = build_scheduler(config, optimizer, len(train_loader))
+        start_epoch, max_accuracy = 0, 0.0
+        for epoch in range(start_epoch, config.TRAIN.EPOCHS):
+            train_loader.sampler.set_epoch(epoch)
+            train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_loader, config)
 
-    start_epoch, max_accuracy = 0, 0.0
-    for epoch in range(start_epoch, config.TRAIN.EPOCHS):
-        train_loader.sampler.set_epoch(epoch)
-        train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_loader, config)
-
-        if epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1):
-            acc1 = validate(val_loader, model, config)
-            from loguru import logger
-            logger.info(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
-            is_best = acc1 > max_accuracy
-            max_accuracy = max(max_accuracy, acc1)
-            logger.info(f'Max accuracy: {max_accuracy:.2f}%')
+            if epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1):
+                acc1 = validate(val_loader, model, config)
+                from loguru import logger
+                logger.info(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
+                is_best = acc1 > max_accuracy
+                max_accuracy = max(max_accuracy, acc1)
+                logger.info(f'Max accuracy: {max_accuracy:.2f}%')
+                if epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1) or is_best:
+                    epoch_saving(config, epoch, model, max_accuracy, optimizer, lr_scheduler, config.MODEL.OUTPUT,
+                                 is_best)
 
     acc1 = validate(val_loader, model, config)
     logger.info(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
 
-def train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_loader, config, mixup_fn):
+def train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_loader, config):
     model.train()
     optimizer.zero_grad()
 
@@ -65,7 +69,12 @@ def train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_load
     for idx, batch_data in enumerate(train_loader):
         images = batch_data['data']
         label_id = batch_data['label']
-        output = model(images)
+        image_input = []
+        for image in images:
+            image = image.cpu().numpy()
+            image_input.append(image)
+        image_input = [item for sublist in image_input for item in sublist]
+        output = model(image_input)
         total_loss = criterion(output, label_id)
         total_loss = total_loss / config.TRAIN.ACCUMULATION_STEPS
         if config.TRAIN.ACCUMULATION_STEPS == 1:
