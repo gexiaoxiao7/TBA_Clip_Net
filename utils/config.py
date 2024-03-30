@@ -13,26 +13,27 @@ _C.DATA = CN()
 _C.DATA.ROOT = ''
 _C.DATA.TRAIN_FILE = ''
 _C.DATA.VAL_FILE = ''
+_C.DATA.TEST_FILE = ''
 _C.DATA.DATASET = 'hmdb51'
 _C.DATA.NUM_FRAMES = 30
 _C.DATA.INPUT_SIZE = 224
 _C.DATA.NUM_CLASSES = 51
 _C.DATA.LABEL_LIST = 'labels/hmdb51_org_base_labels.csv'
 _C.DATA.IF_TEACHER = 1
+_C.DATA.SHOTS = 2
 # -----------------------------------------------------------------------------
 # Model settings
 # -----------------------------------------------------------------------------
 _C.MODEL = CN()
 _C.MODEL.ARCH = 'ViT-B/32'
 _C.MODEL.YOLO = 'Yolo-model/yolov8n.pt'
-_C.MODEL.OUTPUT = 'models'
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
 TRAINER = True
 _C.TRAIN.EPOCHS = 30
-_C.TRAIN.IF_PRETRAINED = 1
+_C.TRAIN.IF_TEST = 1
 _C.TRAIN.WARMUP_EPOCHS = 5
 _C.TRAIN.WEIGHT_DECAY = 0.001
 _C.TRAIN.LR = 8.e-6
@@ -43,18 +44,23 @@ _C.TRAIN.OPTIMIZER = 'adamw'
 _C.TRAIN.OPT_LEVEL = 'O1'
 _C.TRAIN.AUTO_RESUME = 0
 _C.TRAIN.USE_CHECKPOINT = 0
-
 # -----------------------------------------------------------------------------
-# Trainer settings
+# Tip-adapter settings
 # -----------------------------------------------------------------------------
-_C.TRAINER = CN()
-_C.TRAINER.TRANS_FRAMES = 1
-_C.TRAINER.SAVE_FREQ = 10
-_C.TRAINER.PRINT_FREQ = 5
+_C.TIP_ADAPTER = CN()
+_C.TIP_ADAPTER.CACHE_DIR = ''
+_C.TIP_ADAPTER.LOAD_CACHE = 0
+_C.TIP_ADAPTER.AUGMENT_EPOCH = 10
+_C.TIP_ADAPTER.INIT_BETA = 1
+_C.TIP_ADAPTER.INIT_ALPHA = 3
+_C.TIP_ADAPTER.LOAD_PRE_FEAT = 0
 # -----------------------------------------------------------------------------
 # Output settings
 # -----------------------------------------------------------------------------
 _C.OUTPUT = ''
+_C.SEARCH_HP = 1
+_C.SEARCH_SCALE = [7,3]
+_C.SEARCH_STEP = [200,20]
 
 def _update_config_from_file(config, cfg_file):
     config.defrost()

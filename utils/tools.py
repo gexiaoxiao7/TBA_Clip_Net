@@ -2,8 +2,10 @@ import numpy
 import torch.distributed as dist
 import torch
 import clip
+from model.TClip import Prompts_build
 import os
-
+from tqdm import tqdm
+import torch.nn.functional as F
 
 class AverageMeter:
     """Computes and stores the average and current value"""
@@ -23,24 +25,131 @@ class AverageMeter:
         self.count += n
         self.avg = self.sum / self.count
 
+def clip_classifier(classnames,clip_model,device):
+    with torch.no_grad():
+        prompts_learner = Prompts_build(classnames=classnames, device=device)
+        prompts = prompts_learner()
+        x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
+        clip_weights = clip_model.model.encode_text(x)
+        clip_weights /= clip_weights.norm(dim=-1, keepdim=True)
+        clip_weights = clip_weights.permute(1, 0)
+    return clip_weights
 
-def epoch_saving(config, epoch, model, max_accuracy, optimizer, lr_scheduler, working_dir, is_best):
-    save_state = {'model': model.state_dict(),
-                  'optimizer': optimizer.state_dict(),
-                  'lr_scheduler': lr_scheduler.state_dict(),
-                  'max_accuracy': max_accuracy,
-                  'epoch': epoch,
-                  'config': config}
+def build_cache_model(config, clip_model, train_loader_cache):
+    if config.TIP_ADAPTER.LOAD_CACHE == 0:
+        cache_keys = []
+        cache_values = []
 
-    save_path = os.path.join(working_dir, f'ckpt_epoch_{epoch}.pth')
-    print(f"{save_path} saving......")
-    torch.save(save_state, save_path)
-    print(f"{save_path} saved !!!")
-    if is_best:
-        best_path = os.path.join(working_dir, f'best.pth')
-        torch.save(save_state, best_path)
-        print(f"{best_path} saved !!!")
+        with torch.no_grad():
+            # Data augmentation for the cache model
+            for augment_idx in range(config.TIP_ADAPTER.AUGMENT_EPOCH):
+                train_features = []
+
+                print('Augment Epoch: {:} / {:}'.format(augment_idx, config.TIP_ADAPTER.AUGMENT_EPOCH))
+                for idx, batch_data in enumerate(train_loader_cache):
+                    images = batch_data['data']
+                    label_id = batch_data['label']
+                    image_input = []
+                    for image in images:
+                        image = image.cpu().numpy()
+                        image_input.append(image)
+                    image_input = [item for sublist in image_input for item in sublist]
+                    _,image_features,_ = clip_model(image_input)
+                    image_features = image_features.squeeze(0)
+                    train_features.append(image_features)
+                    if augment_idx == 0:
+                        target = label_id
+                        cache_values.append(target)
+                cache_keys.append(torch.cat(train_features, dim=0).unsqueeze(0))
+
+        cache_keys = torch.cat(cache_keys, dim=0).mean(dim=0)
+        cache_keys /= cache_keys.norm(dim=-1, keepdim=True)
+        cache_keys = cache_keys.permute(1, 0)
+        cache_values = F.one_hot(torch.cat(cache_values, dim=0)).half()
+
+        torch.save(cache_keys, config.TIP_ADAPTER.CACHE_DIR + '/keys_' + str(config.DATA.SHOTS) + "shots.pt")
+        torch.save(cache_values, config.TIP_ADAPTER.CACHE_DIR + '/values_' + str(config.DATA.SHOTS) + "shots.pt")
+
+    else:
+        cache_keys = torch.load(config.TIP_ADAPTER.CACHE_DIR + '/keys_' + str(config.DATA.SHOTS) + "shots.pt")
+        cache_values = torch.load(config.TIP_ADAPTER.CACHE_DIR + '/values_' + str(config.DATA.SHOTS) + "shots.pt")
+
+    return cache_keys, cache_values
 
 
+def pre_load_features(config, split, clip_model, loader):
+    if config.TIP_ADAPTER.LOAD_PRE_FEAT == 0:
+        features, labels = [], []
+
+        with torch.no_grad():
+            for idx, batch_data in enumerate(tqdm(loader)):
+                images = batch_data['data']
+                label_id = batch_data['label']
+                image_input = []
+                for image in images:
+                    image = image.cpu().numpy()
+                    image_input.append(image)
+                image_input = [item for sublist in image_input for item in sublist]
+                _,image_features,_ = clip_model(image_input)
+                image_features /= image_features.norm(dim=-1, keepdim=True)
+                features.append(image_features)
+                labels.append(label_id)
+
+        features, labels = torch.cat(features), torch.cat(labels)
+
+        torch.save(features, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_f.pt")
+        torch.save(labels, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_l.pt")
+
+    else:
+        features = torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_f.pt")
+        labels = torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_l.pt")
+    return features, labels
+
+def cls_acc(output, label):
+    acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
+    for idx, similarity in enumerate(output):
+        value1, indices_1 = similarity.topk(1, dim=-1)
+        value5, indices_5 = similarity.topk(5, dim=-1)
+        acc1, acc5 = 0, 0
+        for i in range(1): # batch_size
+            if indices_1[i] == label[i]:
+                acc1 += 1
+            if label[i] in indices_5:
+                acc5 += 1
+        acc1_meter.update(float(acc1) * 100,1)
+        acc5_meter.update(float(acc5) * 100,1)
+    return acc1_meter.avg, acc5_meter.avg
 
 
+def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, adapter=None):
+    if config.SEARCH_HP== 1:
+
+        beta_list = [i * (config.SEARCH_SCALE[0] - 0.1) / config.SEARCH_STEP[0] + 0.1 for i in
+                     range(config.SEARCH_STEP[0])]
+        alpha_list = [i * (config.SEARCH_SCALE[1] - 0.1) / config.SEARCH_STEP[1] + 0.1 for i in
+                      range(config.SEARCH_STEP[1])]
+
+        best_acc = 0
+        best_beta, best_alpha = 0, 0
+
+        for beta in beta_list:
+            for alpha in alpha_list:
+                if adapter:
+                    affinity = adapter(features)
+                else:
+                    affinity = features @ cache_keys
+
+                cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
+                clip_logits = 100. * features @ clip_weights
+                tip_logits = clip_logits + cache_logits * alpha
+                acc1, acc5 = cls_acc(tip_logits, labels)
+
+                if acc1 > best_acc:
+                    print("New best setting, beta: {:.2f}, alpha: {:.2f}; accuracy: {:.2f}".format(beta, alpha, acc1))
+                    best_acc = acc1
+                    best_beta = beta
+                    best_alpha = alpha
+
+        print("\nAfter searching, the best accuarcy: {:.2f}.\n".format(best_acc))
+
+    return best_beta, best_alpha

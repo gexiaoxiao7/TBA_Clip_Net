@@ -2,3 +2,4 @@
 /ultralytics/wandb
 /ultralytics/assets
 /base_model
+/dataSets/extrat.py

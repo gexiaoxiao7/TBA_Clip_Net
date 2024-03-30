@@ -1,0 +1,32 @@
+DATA:
+    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
+    TRAIN_FILE: 'datasets_splits/hmdb51/train_shot2.txt'
+    VAL_FILE: 'datasets_splits/hmdb51/val_shot2.txt'
+    TEST_FILE: 'datasets_splits/hmdb51/test/test.txt'
+    DATASET: hmdb51
+    NUM_FRAMES: 16
+    NUM_CLASSES: 51
+    LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
+    IF_TEACHER: 0
+    SHOTS: 2
+MODEL:
+    ARCH: ViT-B/16
+    YOLO: 'Yolo-model/yolov8n.pt'
+TRAIN:
+    IF_TEST: 0
+    BATCH_SIZE: 1 # BS 64
+    ACCUMULATION_STEPS: 2
+    EPOCHS: 1
+    LR: 0.001
+TIP_ADAPTER:
+    CACHE_DIR: ''
+    LOAD_CACHE: 0
+    AUGMENT_EPOCH: 1
+    LOAD_PRE_FEAT: 0
+    INIT_BETA: 1
+    INIT_ALPHA: 3
+OUTPUT: 'few_shot.csv'
+SEARCH_HP: 1
+SEARCH_SCALE: [7, 3]
+SEARCH_STEP: [200, 20]
+

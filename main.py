@@ -3,15 +3,15 @@ import clip
 import torch
 import os
 import argparse
+import torch.nn.functional as F
 import time
+from tqdm import tqdm
 from utils.config import get_config
 from dataSets.build import build_dataloader
-from utils.tools import AverageMeter
-import datetime
+from utils.tools import AverageMeter, clip_classifier, build_cache_model, pre_load_features
+from utils.tools import cls_acc, search_hp
 import torch.nn as nn
-from utils.optimizer import build_optimizer, build_scheduler
-from utils.tools import epoch_saving
-
+from timm.loss import LabelSmoothingCrossEntropy
 def parse_option():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', '-cfg', required=True, type=str, default='configs/zero_shot/eval/hmdb/tba_clip_hmdb51_base.yaml')
@@ -26,85 +26,172 @@ def parse_option():
     config = get_config(args)
     return args, config
 
-def main(config):
 
-    train_data, val_data, train_loader, val_loader = build_dataloader(config)
-    class_names = [class_name for i, class_name in val_data.classes]
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = tbaclip.returnCLIP(config,class_names,device)
-    if config.TRAIN.IF_PRETRAINED == 0:
-        # training
-        criterion = nn.CrossEntropyLoss()
-        optimizer = build_optimizer(config, model)
-        lr_scheduler = build_scheduler(config, optimizer, len(train_loader))
 
-        start_epoch, max_accuracy = 0, 0.0
-        for epoch in range(start_epoch, config.TRAIN.EPOCHS):
-            train_loader.sampler.set_epoch(epoch)
-            train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_loader, config)
+def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels, clip_weights):
+    print("\n-------- Searching hyperparameters on the val set. --------")
+    # Zero-shot CLIP
+    clip_logits = 100. * val_features @ clip_weights
+    acc1, acc5 = cls_acc(clip_logits, val_labels)
+    print("\n**** Zero-shot CLIP's val accuracy: {:.2f}. ****\n".format(acc1))
 
-            if epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1):
-                acc1 = validate(val_loader, model, config)
-                from loguru import logger
-                logger.info(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
-                is_best = acc1 > max_accuracy
-                max_accuracy = max(max_accuracy, acc1)
-                logger.info(f'Max accuracy: {max_accuracy:.2f}%')
-                if epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1) or is_best:
-                    epoch_saving(config, epoch, model, max_accuracy, optimizer, lr_scheduler, config.MODEL.OUTPUT,
-                                 is_best)
+    # Tip-Adapter
+    beta, alpha = config.TIP_ADAPTER.INIT_BETA, config.TIP_ADAPTER.INIT_ALPHA
 
-    acc1 = validate(val_loader, model, config)
-    logger.info(f"Accuracy of the network on the {len(val_data)} test videos: {acc1:.1f}%")
+    affinity = val_features @ cache_keys
+    cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
 
-def train_one_epoch(epoch, model, criterion, optimizer, lr_scheduler, train_loader, config):
-    model.train()
-    optimizer.zero_grad()
+    tip_logits = clip_logits + cache_logits * alpha
+    acc1,acc5 = cls_acc(tip_logits, val_labels)
+    print("**** Tip-Adapter's val accuracy: {:.2f}. ****\n".format(acc1))
 
-    num_steps = len(train_loader)
-    batch_time = AverageMeter()
-    tot_loss_meter = AverageMeter()
-    start = time.time()
-    end = time.time()
-    for idx, batch_data in enumerate(train_loader):
-        images = batch_data['data']
-        label_id = batch_data['label']
-        image_input = []
-        for image in images:
-            image = image.cpu().numpy()
-            image_input.append(image)
-        image_input = [item for sublist in image_input for item in sublist]
-        output = model(image_input)
-        total_loss = criterion(output, label_id)
-        total_loss = total_loss / config.TRAIN.ACCUMULATION_STEPS
-        if config.TRAIN.ACCUMULATION_STEPS == 1:
+
+    # Search Hyperparameters
+    best_beta, best_alpha = search_hp(config, cache_keys, cache_values, val_features, val_labels, clip_weights)
+
+    print("\n-------- Evaluating on the test set. --------")
+
+    # Zero-shot CLIP
+    clip_logits = 100. * test_features @ clip_weights
+    acc1, acc5 = cls_acc(clip_logits, test_labels)
+    print("\n**** Zero-shot CLIP's test accuracy: {:.2f}. ****\n".format(acc1))
+
+    # Tip-Adapter
+    affinity = test_features @ cache_keys
+    cache_logits = ((-1) * (best_beta - best_beta * affinity)).exp() @ cache_values.to(affinity.device)
+
+    tip_logits = clip_logits + cache_logits * best_alpha
+    acc1, acc5 = cls_acc(tip_logits, test_labels)
+    print("**** Tip-Adapter's test accuracy: {:.2f}. ****\n".format(acc1))
+
+
+def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels, clip_weights,
+                      clip_model, train_loader_F):
+    # Enable the cached keys to be learnable
+    adapter = nn.Linear(cache_keys.shape[0], cache_keys.shape[1], bias=False).to(clip_model.dtype).cuda()
+    adapter.weight = nn.Parameter(cache_keys.t())
+
+    optimizer = torch.optim.AdamW(adapter.parameters(), lr=config.TRAIN.LR, eps=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config.TRAIN.EPOCHS * len(train_loader_F))
+
+    beta, alpha = config.TIP_ADAPTER.INIT_BETA, config.TIP_ADAPTER.INIT_ALPHA
+    best_acc, best_epoch = 0.0, 0
+
+    for train_idx in range(config.TRAIN.EPOCHS):
+        # Train
+        adapter.train()
+        correct_samples, all_samples = 0, 0
+        loss_list = []
+        print('Train Epoch: {:} / {:}'.format(train_idx, config.TRAIN.EPOCHS))
+
+        for idx, batch_data in enumerate(tqdm(train_loader_F)):
+            images = batch_data['data']
+            label_id = batch_data['label']
+            with torch.no_grad():
+                image_input = []
+                for image in images:
+                    image = image.cpu().numpy()
+                    image_input.append(image)
+                image_input = [item for sublist in image_input for item in sublist]
+                _, image_features, _ = clip_model(image_input)
+                image_features /= image_features.norm(dim=-1, keepdim=True)
+            affinity = adapter(image_features)
+            cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
+            clip_logits = 100. * image_features @ clip_weights
+            tip_logits = clip_logits + cache_logits * alpha
+
+            #修改成label_smooth的损失函数
+            criterion = LabelSmoothingCrossEntropy()
+            label_id = label_id.to(tip_logits.device)
+            #把tip_logits的维度从[1,1,51]转到[1,51]
+            tip_logits = tip_logits.squeeze(1)
+            loss = criterion(tip_logits, label_id)
+
+            acc1, acc5 = cls_acc(tip_logits, label_id)
+            correct_samples += acc1 / 100 * len(tip_logits)
+            all_samples += len(tip_logits)
+            loss_list.append(loss.item())
+
             optimizer.zero_grad()
-        total_loss.backward()
-        if config.TRAIN.ACCUMULATION_STEPS > 1:
-            if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
-                optimizer.step()
-                optimizer.zero_grad()
-                lr_scheduler.step_update(epoch * num_steps + idx)
-        else:
+            loss.backward()
             optimizer.step()
-            lr_scheduler.step_update(epoch * num_steps + idx)
-        tot_loss_meter.update(total_loss.item(), len(label_id))
-        batch_time.update(time.time() - end)
-        end = time.time()
-        if idx % config.PRINT_FREQ == 0:
-            lr = optimizer.param_groups[0]['lr']
-            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-            etas = batch_time.avg * (num_steps - idx)
-            print(
-                f'Train: [{epoch}/{config.TRAIN.EPOCHS}][{idx}/{num_steps}]\t'
-                f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.9f}\t'
-                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                f'tot_loss {tot_loss_meter.val:.4f} ({tot_loss_meter.avg:.4f})\t'
-                f'mem {memory_used:.0f}MB')
-        epoch_time = time.time() - start
-        print(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+            scheduler.step()
+
+        current_lr = scheduler.get_last_lr()[0]
+        print('LR: {:.6f}, Acc: {:.4f} ({:}/{:}), Loss: {:.4f}'.format(current_lr, correct_samples / all_samples,
+                                                                       correct_samples, all_samples,
+                                                                       sum(loss_list) / len(loss_list)))
+
+        # Eval
+        adapter.eval()
+
+        affinity = adapter(test_features)
+        cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
+        clip_logits = 100. * test_features @ clip_weights
+        tip_logits = clip_logits + cache_logits * alpha
+        acc1, acc5 = cls_acc(tip_logits, test_labels)
+
+        print("**** Tip-Adapter-F's test accuracy: {:.2f}. ****\n".format(acc1))
+        if acc1 > best_acc:
+            best_acc = acc1
+            best_epoch = train_idx
+            torch.save(adapter.weight, config.TIP_ADAPTER.CACHE_DIR + "/best_F_" + str(config.DATA.SHOTS) + "shots.pt")
+
+    adapter.weight = torch.load(config.TIP_ADAPTER.CACHE_DIR + "/best_F_" + str(config.DATA.SHOTS) + "shots.pt")
+    print(f"**** After fine-tuning, Tip-Adapter-F's best test accuracy: {best_acc:.2f}, at epoch: {best_epoch}. ****\n")
+
+    print("\n-------- Searching hyperparameters on the val set. --------")
+
+    # Search Hyperparameters
+    best_beta, best_alpha = search_hp(config, cache_keys, cache_values, val_features, val_labels, clip_weights,
+                                      adapter=adapter)
+
+    print("\n-------- Evaluating on the test set. --------")
+
+    affinity = adapter(test_features)
+    cache_logits = ((-1) * (best_beta - best_beta * affinity)).exp() @ cache_values.to(affinity.device)
+
+    tip_logits = clip_logits + cache_logits * best_alpha
+    acc1,acc5 = cls_acc(tip_logits, test_labels)
+    print("**** Tip-Adapter-F's test accuracy: {:.2f}. ****\n".format(max(best_acc, acc1)))
 
 
+def main(config):
+    cache_dir = os.path.join('./caches', config.DATA.DATASET)
+    os.makedirs(cache_dir, exist_ok=True)
+    print(config, "\n")
+
+    # zero-shot
+    if config.TRAIN.IF_TEST == 1:
+        _,_,test_data,_,_,test_loader = build_dataloader(config)
+        class_names = [class_name for i, class_name in test_data.classes]
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = tbaclip.returnCLIP(config,class_names,device)
+        acc1 = validate(test_loader, model, config)
+        print(f"Accuracy of the network on the {len(test_data)} test videos: {acc1:.1f}%")
+    else:
+        train_data, val_data, test_data, train_loader, val_loader, test_loader = build_dataloader(config)
+        class_names = [class_name for i, class_name in test_data.classes]
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = tbaclip.returnCLIP(config, class_names, device)
+        # USE adapter-clip
+        print("\nGetting textual features as CLIP's classifier.")
+        clip_weights = clip_classifier(class_names, model, device)
+        # Construct the cache model by few-shot training set
+        print("\nConstructing cache model by few-shot visual features and labels.")
+        cache_keys, cache_values = build_cache_model(config, model, train_loader)
+        # Pre-load val features
+        print("\nLoading visual features and labels from val set.")
+        val_features, val_labels = pre_load_features(config, "val", model, val_loader)
+        # Pre-load test features
+        print("\nLoading visual features and labels from test set.")
+        test_features, test_labels = pre_load_features(config, "test", model, test_loader)
+        # ------------------------------------------ Tip-Adapter ------------------------------------------
+        # run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
+        #                 clip_weights)
+        # ------------------------------------------ Tip-Adapter-F ------------------------------------------
+        run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
+                          clip_weights, model, train_loader)
 
 @torch.no_grad()
 def validate(val_loader,model,config):
@@ -112,25 +199,14 @@ def validate(val_loader,model,config):
     acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
     with torch.no_grad():
         for idx, batch_data in enumerate(val_loader):
-            # print('filename:',batch_data['filename'])
             images = batch_data['data']
             label_id = batch_data['label']
-            # print(label_id[0])
-            tot_similarity = torch.zeros((b, config.DATA.NUM_CLASSES)).cuda()
             image_input = []
             for image in images:
                 image = image.cpu().numpy()
-                # output = model(image)
-                # similarity = output
-                # tot_similarity += similarity
                 image_input.append(image)
             image_input = [item for sublist in image_input for item in sublist]
-            if config.TRAINER.TRANS_FRAMES == 1:
-                tot_similarity = model(image_input)
-            else:
-                for image in image_input:
-                    similarity = model(image)
-                    tot_similarity += similarity
+            tot_similarity, _, _ = model(image_input)
             values_1, indices_1 = tot_similarity.topk(1, dim=-1)
             values_5, indices_5 = tot_similarity.topk(5, dim=-1)
             acc1, acc5 = 0, 0
@@ -146,7 +222,6 @@ def validate(val_loader,model,config):
                         f'Acc@1: {acc1_meter.avg:.3f}\t')
         print(f'Acc@1: {acc1_meter.avg:.3f}\t'
               f'Acc@5: {acc5_meter.avg:.3f}\t')
-        #如果没有输出文件，创建一个
         if not os.path.exists(config.OUTPUT):
             with open(config.OUTPUT, 'w') as f:
                 pass
@@ -154,9 +229,9 @@ def validate(val_loader,model,config):
         if os.stat(config.OUTPUT).st_size == 0:
             with open(config.OUTPUT, 'a') as f:
                 # Write the column names
-                f.write('Model,Trans_frames,If_teacher,Num_Frames,Acc1,Acc5,Dataset\n')
+                f.write('Model,If_teacher,Num_Frames,Acc1,Acc5,Dataset\n')
         with open(config.OUTPUT, 'a') as f:
-            f.write(f'{config.MODEL.ARCH},{config.TRAINER.TRANS_FRAMES},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1_meter.avg:.3f},{acc5_meter.avg:.3f},{config.DATA.DATASET}\n')
+            f.write(f'{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1_meter.avg:.3f},{acc5_meter.avg:.3f},{config.DATA.DATASET}\n')
         return acc1_meter.avg
 
 if __name__ == '__main__':
