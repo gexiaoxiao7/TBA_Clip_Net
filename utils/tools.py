@@ -6,6 +6,8 @@ from model.TClip import Prompts_build
 import os
 from tqdm import tqdm
 import torch.nn.functional as F
+from torch.utils.data import DataLoader, Subset
+from collections import defaultdict
 
 class AverageMeter:
     """Computes and stores the average and current value"""
@@ -32,7 +34,6 @@ def clip_classifier(classnames,clip_model,config,device):
         x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
         clip_weights = clip_model.model.encode_text(x)
         clip_weights /= clip_weights.norm(dim=-1, keepdim=True)
-        clip_weights = clip_weights.permute(1, 0)
     return clip_weights
 
 def build_cache_model(config, clip_model, train_loader_cache):
@@ -92,6 +93,8 @@ def pre_load_features(config, split, clip_model, loader):
                 image_input = [item for sublist in image_input for item in sublist]
                 _,image_features,_ = clip_model(image_input)
                 image_features /= image_features.norm(dim=-1, keepdim=True)
+                #把 image_features 从[1,1,512] 转换成[1,512]
+                image_features = image_features.squeeze(0)
                 features.append(image_features)
                 labels.append(label_id)
 
@@ -107,6 +110,8 @@ def pre_load_features(config, split, clip_model, loader):
 
 def cls_acc(output, label):
     acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    label = torch.tensor(label).to(device)
     for idx, similarity in enumerate(output):
         value1, indices_1 = similarity.topk(1, dim=-1)
         value5, indices_5 = similarity.topk(5, dim=-1)
@@ -140,7 +145,7 @@ def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, 
                     affinity = features @ cache_keys
 
                 cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
-                clip_logits = 100. * features @ clip_weights
+                clip_logits = 100. * features @ clip_weights.T
                 tip_logits = clip_logits + cache_logits * alpha
                 acc1, acc5 = cls_acc(tip_logits, labels)
 
@@ -153,3 +158,28 @@ def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, 
         print("\nAfter searching, the best accuarcy: {:.2f}.\n".format(best_acc))
 
     return best_beta, best_alpha
+
+
+
+def split_dataset(dataset, batch_size):
+    # Step 1: Create a list of indices for each label
+    label_to_indices = defaultdict(list)
+    for idx, batch_data in enumerate(dataset):
+        label = batch_data['label']
+        label_to_indices[label].append(idx)
+
+    # Step 2: Split the indices for each label and add them to the new index lists
+    indices1, indices2 = [], []
+    for indices in label_to_indices.values():
+        mid = len(indices) // 2
+        indices1.extend(indices[:mid])
+        indices2.extend(indices[mid:])
+
+    # Step 3: Create two Subset objects and two DataLoaders
+    subset1 = Subset(dataset, indices1)
+    subset2 = Subset(dataset, indices2)
+
+    dataloader1 = DataLoader(subset1, batch_size=batch_size)
+    dataloader2 = DataLoader(subset2, batch_size=batch_size)
+
+    return dataloader1, dataloader2

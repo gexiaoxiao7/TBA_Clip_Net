@@ -29,15 +29,16 @@ class VideoDataset():
         video_capture = cv2.VideoCapture(path)
         total_frames = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
         frames = []
-        frame_ids = np.linspace(0, total_frames - 1, self.num_frames)
-        for i in range(total_frames):
+        frame_ids = np.linspace(0, total_frames - 2, self.num_frames)
+        frame_ids = np.floor(frame_ids).astype(int)
+        for i in range(total_frames+1) :
             ret, frame = video_capture.read()
-            if not ret:
-                break
             if i in frame_ids:
                 frames.append(frame)
+            if not ret:
+                break
         video_capture.release()
-        if self.if_teacher:
+        if self.if_teacher == 1:
             for i in range(len(frames)):
                 frames[i] = self.detector(frames[i])
         frames = [

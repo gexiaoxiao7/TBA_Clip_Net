@@ -59,7 +59,7 @@ def extract_shots(dataSet, shots, dataset_path, shots_path):
     with open(val_path, 'w') as f:
         for label, files in files_by_label.items():
             # Select half the number of training samples for validation
-            selected_files = random.sample(files, min(shots // 2, len(files)))
+            selected_files = random.sample(files, min(shots // 4, len(files)))
             for file in selected_files:
                 f.write(f'{file} {label}\n')
 
@@ -86,7 +86,7 @@ def split_file(file_path,num):
 if __name__ == '__main__':
     # split_dataSet('hmdb51_org')
     # split_dataSet('UCF-101')
-    extract_shots('hmdb51_org', 2, 'D:\gfx\CODE\project\TBA_Clip_Net\datasets_splits\hmdb51\\train.txt',
-                  'shot2.txt')
+    extract_shots('hmdb51_org', 8, 'D:\gfx\CODE\project\TBA_Clip_Net\datasets_splits\hmdb51\\train.txt',
+                  'shot4.txt')
 
     pass

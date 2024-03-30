@@ -1,14 +1,14 @@
 DATA:
     ROOT: 'E:/DATASETS/hmdb51_org/videos/'
-    TRAIN_FILE: 'datasets_splits/hmdb51/train_shot2.txt'
-    VAL_FILE: 'datasets_splits/hmdb51/val_shot2.txt'
+    TRAIN_FILE: 'datasets_splits/hmdb51/train_shot4.txt'
+    VAL_FILE: 'datasets_splits/hmdb51/val_shot4.txt'
     TEST_FILE: 'datasets_splits/hmdb51/test/test.txt'
     DATASET: hmdb51
     NUM_FRAMES: 16
     NUM_CLASSES: 51
     LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
     IF_TEACHER: 0
-    SHOTS: 2
+    SHOTS: 4
 MODEL:
     ARCH: ViT-B/16
     YOLO: 'Yolo-model/yolov8n.pt'
