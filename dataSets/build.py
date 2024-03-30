@@ -33,10 +33,13 @@ class VideoDataset():
         frame_ids = np.floor(frame_ids).astype(int)
         for i in range(total_frames+1) :
             ret, frame = video_capture.read()
-            if i in frame_ids:
-                frames.append(frame)
             if not ret:
                 break
+            if i in frame_ids:
+                frames.append(frame)
+
+        while len(frames) < self.num_frames:
+            frames.extend(frames[:self.num_frames - len(frames)])
         video_capture.release()
         if self.if_teacher == 1:
             for i in range(len(frames)):

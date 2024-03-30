@@ -86,7 +86,7 @@ def split_file(file_path,num):
 if __name__ == '__main__':
     # split_dataSet('hmdb51_org')
     # split_dataSet('UCF-101')
-    extract_shots('hmdb51_org', 8, 'D:\gfx\CODE\project\TBA_Clip_Net\datasets_splits\hmdb51\\train.txt',
-                  'shot4.txt')
+    extract_shots('UCF-101', 4, 'D:\gfx\CODE\project\TBA_Clip_Net\datasets_splits\\UCF-101\\train.txt',
+                  'shot2.txt')
 
     pass

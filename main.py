@@ -31,7 +31,7 @@ def parse_option():
 def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels, clip_weights):
     print("\n-------- Searching hyperparameters on the val set. --------")
     # Zero-shot CLIP
-    clip_logits = (100. * val_features @ clip_weights.T)
+    clip_logits = (100. * val_features @ clip_weights.T).softmax(dim=-1)
     acc1, acc5 = cls_acc(clip_logits, val_labels)
     print("\n**** Zero-shot CLIP's val accuracy1: {:.2f}. , accuracy5: {:.2f} ****\n".format(acc1,acc5))
 
@@ -52,7 +52,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     print("\n-------- Evaluating on the test set. --------")
 
     # Zero-shot CLIP
-    clip_logits = 100. * test_features @ clip_weights.T
+    clip_logits = (100. * test_features @ clip_weights.T).softmax(dim=-1)
     acc1, acc5 = cls_acc(clip_logits, test_labels)
     print("\n**** Zero-shot CLIP's test accuracy1: {:.2f}. accuracy5:{:.2f}****\n".format(acc1,acc5))
 
@@ -81,7 +81,6 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
         # Train
         b = config.TRAIN.BATCH_SIZE
         adapter.train()
-        correct_samples, all_samples = 0, 0
         loss_list = []
         print('Train Epoch: {:} / {:}'.format(train_idx, config.TRAIN.EPOCHS))
         acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
@@ -125,8 +124,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
             scheduler.step()
 
         current_lr = scheduler.get_last_lr()[0]
-        print('LR: {:.6f}, Acc@1: {:.4f} ({}/{}), Loss: {:.4f}'.format(current_lr, acc1_meter.avg, acc1_meter.sum, acc1_meter.count,
-                                                                       sum(loss_list) / len(loss_list)))
+        print('LR: {:.6f}, Acc@1: {:.4f}, Loss: {:.4f}'.format(current_lr, acc1_meter.avg, sum(loss_list) / len(loss_list)))
 
         # Eval
         adapter.eval()
@@ -170,37 +168,37 @@ def main(config):
     config.TIP_ADAPTER.CACHE_DIR = cache_dir
     config.freeze()  # Freeze the config again
     #zero-shot
-    if config.TRAIN.IF_TEST == 1:
-        _,_,test_data,_,_,test_loader = build_dataloader(config)
-        class_names = [class_name for i, class_name in test_data.classes]
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = tbaclip.returnCLIP(config,class_names,device)
-        acc1 = validate(test_loader, model, config)
-        print(f"Accuracy of the network on the {len(test_data)} test videos: {acc1:.1f}%")
-    else:
-        train_data, val_data, test_data, train_loader, val_loader, test_loader = build_dataloader(config)
-        train_load_cache, train_load_F = split_dataset(train_data,config.TRAIN.BATCH_SIZE)
-        class_names = [class_name for i, class_name in test_data.classes]
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = tbaclip.returnCLIP(config, class_names, device)
-        # USE adapter-clip
-        print("\nGetting textual features as CLIP's classifier.")
-        clip_weights = clip_classifier(class_names, model, config,device)
-        # Construct the cache model by few-shot training set
-        print("\nConstructing cache model by few-shot visual features and labels.")
-        cache_keys, cache_values = build_cache_model(config, model, train_load_cache)
-        # Pre-load val features
-        print("\nLoading visual features and labels from val set.")
-        val_features, val_labels = pre_load_features(config, "val", model, val_loader)
-        # Pre-load test features
-        print("\nLoading visual features and labels from test set.")
-        test_features, test_labels = pre_load_features(config, "test", model, test_loader)
-        # ------------------------------------------ Tip-Adapter ------------------------------------------
-        run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
-                        clip_weights)
-        # ------------------------------------------ Tip-Adapter-F ------------------------------------------
-        run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
-                          clip_weights, model, train_load_F)
+    # if config.TRAIN.IF_TEST == 1:
+    _,_,test_data,_,_,test_loader = build_dataloader(config)
+    class_names = [class_name for i, class_name in test_data.classes]
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = tbaclip.returnCLIP(config,class_names,device)
+    acc1 = validate(test_loader, model, config)
+    print(f"Accuracy of the network on the {len(test_data)} test videos: {acc1:.1f}%")
+    # else:
+    train_data, val_data, test_data, train_loader, val_loader, test_loader = build_dataloader(config)
+    train_load_cache, train_load_F = split_dataset(train_data,config.TRAIN.BATCH_SIZE)
+    class_names = [class_name for i, class_name in test_data.classes]
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = tbaclip.returnCLIP(config, class_names, device)
+    # USE adapter-clip
+    print("\nGetting textual features as CLIP's classifier.")
+    clip_weights = clip_classifier(class_names, model, config,device)
+    # Construct the cache model by few-shot training set
+    print("\nConstructing cache model by few-shot visual features and labels.")
+    cache_keys, cache_values = build_cache_model(config, model, train_load_cache)
+    # Pre-load val features
+    print("\nLoading visual features and labels from val set.")
+    val_features, val_labels = pre_load_features(config, "val", model, val_loader)
+    # Pre-load test features
+    print("\nLoading visual features and labels from test set.")
+    test_features, test_labels = pre_load_features(config, "test", model, test_loader)
+    # ------------------------------------------ Tip-Adapter ------------------------------------------
+    run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
+                    clip_weights)
+    # ------------------------------------------ Tip-Adapter-F ------------------------------------------
+    # run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
+    #                   clip_weights, model, train_load_F)
 
 @torch.no_grad()
 def validate(val_loader,model,config):

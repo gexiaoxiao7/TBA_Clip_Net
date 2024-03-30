@@ -47,7 +47,7 @@ def build_cache_model(config, clip_model, train_loader_cache):
                 train_features = []
 
                 print('Augment Epoch: {:} / {:}'.format(augment_idx, config.TIP_ADAPTER.AUGMENT_EPOCH))
-                for idx, batch_data in enumerate(train_loader_cache):
+                for idx, batch_data in enumerate(tqdm(train_loader_cache)):
                     images = batch_data['data']
                     label_id = batch_data['label']
                     image_input = []
@@ -110,16 +110,18 @@ def pre_load_features(config, split, clip_model, loader):
 
 def cls_acc(output, label):
     acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
+    # label = label.reshape(-1, 1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     label = torch.tensor(label).to(device)
     for idx, similarity in enumerate(output):
+        cur_label = label[idx]
         value1, indices_1 = similarity.topk(1, dim=-1)
         value5, indices_5 = similarity.topk(5, dim=-1)
         acc1, acc5 = 0, 0
         for i in range(1): # batch_size
-            if indices_1[i] == label[i]:
+            if indices_1[i] == cur_label:
                 acc1 += 1
-            if label[i] in indices_5:
+            if cur_label in indices_5:
                 acc5 += 1
         acc1_meter.update(float(acc1) * 100,1)
         acc5_meter.update(float(acc5) * 100,1)
