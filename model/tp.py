@@ -14,13 +14,25 @@ class Attention(nn.Module):
         return attention_weights
 
 class TemporalPooling(nn.Module):
-    def __init__(self, feature_dim):
+    def __init__(self, feature_dim,config):
         super(TemporalPooling, self).__init__()
         self.attention = Attention(feature_dim)
+        self.config = config
+        self.conv1d = nn.Conv1d(feature_dim, feature_dim, kernel_size=3, padding=1)  # 初始化Conv1d层
 
     def forward(self, x):
-        # x shape: [N, T, D]
-        attention_weights = self.attention(x)  # shape: [N, T, 1]
-        video_feature = torch.sum(attention_weights * x, dim=1)  # shape: [N, D]
-        video_feature = torch.unsqueeze(video_feature, 0)  # 添加一个维度，将形状变为[1, D]
+        if self.config.TEMPORAL_POOLING == 'mean':
+            video_feature = torch.mean(x, dim=1)
+            video_feature = torch.unsqueeze(video_feature, 0)
+        elif self.config.TEMPORAL_POOLING == 'attention':
+            attention_weights = self.attention(x)
+            video_feature = torch.sum(attention_weights * x, dim=1)
+            video_feature = torch.unsqueeze(video_feature, 0)
+        elif self.config.TEMPORAL_POOLING == 'conv1d':
+            x = x.permute(0, 2, 1)  # Conv1d expects inputs in the shape [N, D, T]
+            x = self.conv1d(x)  # Apply Conv1d
+            video_feature = torch.mean(x, dim=2)  # Average pooling
+            video_feature = torch.unsqueeze(video_feature, 0)
+        else:
+            raise NotImplementedError
         return video_feature

@@ -2,7 +2,7 @@ DATA:
     ROOT: 'E:/DATASETS/hmdb51_org/videos/'
     TRAIN_FILE: 'datasets_splits/hmdb51/train_shot2.txt'
     VAL_FILE: 'datasets_splits/hmdb51/val_shot2.txt'
-    TEST_FILE: 'datasets_splits/hmdb51/test/test.txt'
+    TEST_FILE: 'datasets_splits/hmdb51/test_split_1.txt'
     DATASET: hmdb51
     NUM_FRAMES: 16
     NUM_CLASSES: 51
@@ -13,7 +13,7 @@ MODEL:
     ARCH: ViT-B/16
     YOLO: 'Yolo-model/yolov8n.pt'
 TRAIN:
-    IF_TEST: 0
+    IF_TEST: 1
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
     EPOCHS: 1
@@ -29,4 +29,6 @@ OUTPUT: 'few_shot.csv'
 SEARCH_HP: 1
 SEARCH_SCALE: [7, 3]
 SEARCH_STEP: [200, 20]
-
+PREFIX: 'a photo of '
+SUFFIX: ''
+TEMPORAL_POOLING: 'attention'

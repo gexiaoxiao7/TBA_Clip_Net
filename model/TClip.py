@@ -14,38 +14,37 @@ def load_clip(backbone_name, device):
     return model, preprocess
 
 class VideoEncoder(nn.Module):
-    def __init__(self, clip_model, preprocess, device):
+    def __init__(self, clip_model, preprocess,config,device):
         super().__init__()
         self.model = clip_model
         self.preprocess = preprocess
         self.dtype = clip_model.dtype
         self.device = device
-
+        self.config = config
     def forward(self, images):
         video_info = images
         video_info = [torch.from_numpy(x).to(self.device).type(self.dtype) for x in video_info]
         image_features = [self.model.encode_image(x) for x in video_info]
         image_features = torch.stack(image_features, dim=1).to(torch.half)
-        temporal_pooling = TemporalPooling(feature_dim=image_features.shape[-1]).to(self.device).to(torch.half)
+        temporal_pooling = TemporalPooling(feature_dim=image_features.shape[-1],config=self.config).to(self.device).to(torch.half)
         video_features = temporal_pooling(image_features)
         return video_features
 
 class Prompts_build(nn.Module):
-    def __init__(self, classnames,device):
+    def __init__(self, classnames,device, config):
         super().__init__()
         self.classnames = classnames
         self.device = device
-    def construct_prompts(self, ctx, prefix, suffix):
+        self.config = config
+    def construct_prompts(self, ctx):
         # dim0 is either batch_size (during training) or n_cls (during testing)
         # ctx: context tokens, with shape of (dim0, n_ctx, ctx_dim)
         # prefix: the sos token, with shape of (n_cls, 1, ctx_dim)
         # suffix: remaining tokens, with shape of (n_cls, *, ctx_dim)
-        prompt = prefix + ctx + suffix
+        prompt = self.config.PREFIX + ctx + self.config.SUFFIX
         return prompt
     def forward(self):
-        prefix = 'a photo of '
-        suffix = ''
-        prompts = [self.construct_prompts(x, prefix, suffix) for x in self.classnames]
+        prompts = [self.construct_prompts(x) for x in self.classnames]
         return prompts
 
 class TextEncoder(nn.Module):
@@ -66,10 +65,10 @@ class TBA_Clip(nn.Module):
     def __init__(self, clip_model, preprocess, classnames, device,config):
         super().__init__()
         self.model = clip_model
-        self.prompts_learner = Prompts_build(classnames = classnames, device = device)
+        self.prompts_learner = Prompts_build(classnames = classnames, device = device, config = config)
         self.preprocess = preprocess
         self.text_encoder = TextEncoder(clip_model,device)
-        self.image_encoder = VideoEncoder(clip_model, preprocess, device)
+        self.image_encoder = VideoEncoder(clip_model, preprocess, config,device)
         self.dtype = clip_model.dtype
         self.config = config
         self.device = device
