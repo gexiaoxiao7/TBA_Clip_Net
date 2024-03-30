@@ -169,37 +169,37 @@ def main(config):
     config.defrost()  # Unfreeze the config
     config.TIP_ADAPTER.CACHE_DIR = cache_dir
     config.freeze()  # Freeze the config again
-    # zero-shot
-    # if config.TRAIN.IF_TEST == 1:
-    # _,_,test_data,_,_,test_loader = build_dataloader(config)
-    # class_names = [class_name for i, class_name in test_data.classes]
-    # device = "cuda" if torch.cuda.is_available() else "cpu"
-    # model = tbaclip.returnCLIP(config,class_names,device)
-    # acc1 = validate(test_loader, model, config)
-    # print(f"Accuracy of the network on the {len(test_data)} test videos: {acc1:.1f}%")
-    # else:
-    train_data, val_data, test_data, train_loader, val_loader, test_loader = build_dataloader(config)
-    train_load_cache, train_load_F = split_dataset(train_data,config.TRAIN.BATCH_SIZE)
-    class_names = [class_name for i, class_name in test_data.classes]
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = tbaclip.returnCLIP(config, class_names, device)
-    # USE adapter-clip
-    print("\nGetting textual features as CLIP's classifier.")
-    clip_weights = clip_classifier(class_names, model, config,device)
-    # Construct the cache model by few-shot training set
-    print("\nConstructing cache model by few-shot visual features and labels.")
-    cache_keys, cache_values = build_cache_model(config, model, train_load_cache)
-    # Pre-load val features
-    print("\nLoading visual features and labels from val set.")
-    val_features, val_labels = pre_load_features(config, "val", model, val_loader)
-    # Pre-load test features
-    print("\nLoading visual features and labels from test set.")
-    test_features, test_labels = pre_load_features(config, "test", model, test_loader)
-    # ------------------------------------------ Tip-Adapter ------------------------------------------
-    # run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
-    #                 clip_weights)
-    # ------------------------------------------ Tip-Adapter-F ------------------------------------------
-    run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
+    #zero-shot
+    if config.TRAIN.IF_TEST == 1:
+        _,_,test_data,_,_,test_loader = build_dataloader(config)
+        class_names = [class_name for i, class_name in test_data.classes]
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = tbaclip.returnCLIP(config,class_names,device)
+        acc1 = validate(test_loader, model, config)
+        print(f"Accuracy of the network on the {len(test_data)} test videos: {acc1:.1f}%")
+    else:
+        train_data, val_data, test_data, train_loader, val_loader, test_loader = build_dataloader(config)
+        train_load_cache, train_load_F = split_dataset(train_data,config.TRAIN.BATCH_SIZE)
+        class_names = [class_name for i, class_name in test_data.classes]
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = tbaclip.returnCLIP(config, class_names, device)
+        # USE adapter-clip
+        print("\nGetting textual features as CLIP's classifier.")
+        clip_weights = clip_classifier(class_names, model, config,device)
+        # Construct the cache model by few-shot training set
+        print("\nConstructing cache model by few-shot visual features and labels.")
+        cache_keys, cache_values = build_cache_model(config, model, train_load_cache)
+        # Pre-load val features
+        print("\nLoading visual features and labels from val set.")
+        val_features, val_labels = pre_load_features(config, "val", model, val_loader)
+        # Pre-load test features
+        print("\nLoading visual features and labels from test set.")
+        test_features, test_labels = pre_load_features(config, "test", model, test_loader)
+        # ------------------------------------------ Tip-Adapter ------------------------------------------
+        run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
+                        clip_weights)
+        # ------------------------------------------ Tip-Adapter-F ------------------------------------------
+        run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
                           clip_weights, model, train_load_F)
 
 @torch.no_grad()
