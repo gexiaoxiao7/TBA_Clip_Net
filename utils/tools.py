@@ -25,9 +25,9 @@ class AverageMeter:
         self.count += n
         self.avg = self.sum / self.count
 
-def clip_classifier(classnames,clip_model,device):
+def clip_classifier(classnames,clip_model,config,device):
     with torch.no_grad():
-        prompts_learner = Prompts_build(classnames=classnames, device=device)
+        prompts_learner = Prompts_build(classnames=classnames,config=config,device=device)
         prompts = prompts_learner()
         x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
         clip_weights = clip_model.model.encode_text(x)

@@ -176,7 +176,7 @@ def main(config):
         model = tbaclip.returnCLIP(config, class_names, device)
         # USE adapter-clip
         print("\nGetting textual features as CLIP's classifier.")
-        clip_weights = clip_classifier(class_names, model, device)
+        clip_weights = clip_classifier(class_names, model, config,device)
         # Construct the cache model by few-shot training set
         print("\nConstructing cache model by few-shot visual features and labels.")
         cache_keys, cache_values = build_cache_model(config, model, train_loader)
