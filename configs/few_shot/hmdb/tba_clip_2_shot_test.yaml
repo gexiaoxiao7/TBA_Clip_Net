@@ -1,9 +1,9 @@
 DATA:
-    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
-#    ROOT: '/root/autodl-fs/videos/'
-    TRAIN_FILE: 'datasets_splits/hmdb51/train_shot2.txt'
-    VAL_FILE: 'datasets_splits/hmdb51/val_shot2.txt'
-    TEST_FILE: 'datasets_splits/hmdb51/test/test.txt'
+#    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
+    ROOT: '/root/autodl-fs/videos/'
+    TRAIN_FILE: 'datasets_splits/hmdb51/train_shot4.txt'
+    VAL_FILE: 'datasets_splits/hmdb51/val_shot4.txt'
+    TEST_FILE: 'datasets_splits/hmdb51/test_split_1.txt'
     DATASET: hmdb51
     NUM_FRAMES: 16
     NUM_CLASSES: 51
@@ -18,13 +18,13 @@ TRAIN:
     ZS: 1
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
-    EPOCHS: 1
+    EPOCHS: 10
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''
-    LOAD_CACHE: 1
-    AUGMENT_EPOCH: 1
-    LOAD_PRE_FEAT: 1
+    LOAD_CACHE: 0
+    AUGMENT_EPOCH: 30
+    LOAD_PRE_FEAT: 0
     INIT_BETA: 1
     INIT_ALPHA: 3
 OUTPUT: 'few_shot.csv'
