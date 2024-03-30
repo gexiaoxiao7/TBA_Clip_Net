@@ -2,7 +2,7 @@ DATA:
     ROOT: 'E:/DATASETS/hmdb51_org/videos/'
     TRAIN_FILE: 'datasets_splits/hmdb51/train_shot2.txt'
     VAL_FILE: 'datasets_splits/hmdb51/val_shot2.txt'
-    TEST_FILE: 'datasets_splits/hmdb51/test_split_1.txt'
+    TEST_FILE: 'datasets_splits/hmdb51/test/test.txt'
     DATASET: hmdb51
     NUM_FRAMES: 16
     NUM_CLASSES: 51
@@ -20,9 +20,9 @@ TRAIN:
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''
-    LOAD_CACHE: 0
+    LOAD_CACHE: 1
     AUGMENT_EPOCH: 1
-    LOAD_PRE_FEAT: 0
+    LOAD_PRE_FEAT: 1
     INIT_BETA: 1
     INIT_ALPHA: 3
 OUTPUT: 'few_shot.csv'

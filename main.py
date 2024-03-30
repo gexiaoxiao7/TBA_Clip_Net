@@ -33,7 +33,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     # Zero-shot CLIP
     clip_logits = 100. * val_features @ clip_weights
     acc1, acc5 = cls_acc(clip_logits, val_labels)
-    print("\n**** Zero-shot CLIP's val accuracy: {:.2f}. ****\n".format(acc1))
+    print("\n**** Zero-shot CLIP's val accuracy1: {:.2f}. , accuracy5: {:.2f} ****\n".format(acc1,acc5))
 
     # Tip-Adapter
     beta, alpha = config.TIP_ADAPTER.INIT_BETA, config.TIP_ADAPTER.INIT_ALPHA
@@ -43,7 +43,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
 
     tip_logits = clip_logits + cache_logits * alpha
     acc1,acc5 = cls_acc(tip_logits, val_labels)
-    print("**** Tip-Adapter's val accuracy: {:.2f}. ****\n".format(acc1))
+    print("**** Tip-Adapter's val accuracy1: {:.2f}. accuracy5: {:.2f}****\n".format(acc1,acc5))
 
 
     # Search Hyperparameters
@@ -54,7 +54,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     # Zero-shot CLIP
     clip_logits = 100. * test_features @ clip_weights
     acc1, acc5 = cls_acc(clip_logits, test_labels)
-    print("\n**** Zero-shot CLIP's test accuracy: {:.2f}. ****\n".format(acc1))
+    print("\n**** Zero-shot CLIP's test accuracy1: {:.2f}. accuracy5:{:.2f}****\n".format(acc1,acc5))
 
     # Tip-Adapter
     affinity = test_features @ cache_keys
@@ -62,7 +62,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
 
     tip_logits = clip_logits + cache_logits * best_alpha
     acc1, acc5 = cls_acc(tip_logits, test_labels)
-    print("**** Tip-Adapter's test accuracy: {:.2f}. ****\n".format(acc1))
+    print("**** Tip-Adapter's test accuracy1: {:.2f}. accuracy5: {:.2f} ****\n".format(acc1,acc5))
 
 
 def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels, clip_weights,
@@ -153,14 +153,16 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
 
     tip_logits = clip_logits + cache_logits * best_alpha
     acc1,acc5 = cls_acc(tip_logits, test_labels)
-    print("**** Tip-Adapter-F's test accuracy: {:.2f}. ****\n".format(max(best_acc, acc1)))
+    print("**** Tip-Adapter-F's test accuracy1: {:.2f}. , accuracy5: {:.2f}.****\n".format(max(best_acc, acc1),acc5))
 
 
 def main(config):
-    cache_dir = os.path.join('./caches', config.DATA.DATASET)
+    cache_dir = './caches/' +  config.DATA.DATASET + '/'
     os.makedirs(cache_dir, exist_ok=True)
     print(config, "\n")
-
+    config.defrost()  # Unfreeze the config
+    config.TIP_ADAPTER.CACHE_DIR = cache_dir
+    config.freeze()  # Freeze the config again
     # zero-shot
     if config.TRAIN.IF_TEST == 1:
         _,_,test_data,_,_,test_loader = build_dataloader(config)
