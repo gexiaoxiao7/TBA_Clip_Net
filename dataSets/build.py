@@ -6,9 +6,10 @@ from PIL import Image
 import cv2
 import torch
 import clip
+from utils.tools import split_dataset
 
 class VideoDataset():
-    def __init__(self,config,preprocess,device,ann_file):
+    def __init__(self,config,preprocess,device,ann_file,shot=0,type = 'train'):
         self.labels_file = config.DATA.LABEL_LIST
         self.ann_file = ann_file
         self.data_prefix = config.DATA.ROOT
@@ -17,6 +18,8 @@ class VideoDataset():
         self.yolo_model = config.MODEL.YOLO
         self.preprocess = preprocess
         self.device = device
+        self.shot = shot
+        self.type = type
         self.if_teacher = config.DATA.IF_TEACHER
         self.detector = TeacherDetection(self.yolo_model)
         self.video_info = self.load_annotations()
@@ -51,6 +54,8 @@ class VideoDataset():
 
     def load_annotations(self):
         video_infos = []
+        #初始化一个列表，长度为num_classes，值为0
+        class_counts = {}
         total_lines = sum(1 for line in open(self.ann_file, 'r'))
         with open(self.ann_file, 'r') as fin:
             for idx, line in enumerate(fin):
@@ -60,8 +65,18 @@ class VideoDataset():
                 line_split = line.strip().split()
                 filename, label = line_split
                 label = int(label)
-                data = self.prepare_frames(self.data_prefix + filename)
-                video_infos.append(dict(filename=filename, label=label, data=data))
+                if self.type == 'train':
+                    if label in class_counts and class_counts[label] >= self.shot * 2:
+                        continue
+                    if label not in class_counts:
+                        class_counts[label] = 1
+                    else:
+                        class_counts[label] += 1
+                    data = self.prepare_frames(self.data_prefix + filename)
+                    video_infos.append(dict(filename=filename, label=label, data=data))
+                else:
+                    data = self.prepare_frames(self.data_prefix + filename)
+                    video_infos.append(dict(filename=filename, label=label, data=data))
         return video_infos
 
     def __len__(self):
@@ -90,20 +105,17 @@ class SubsetRandomSampler(torch.utils.data.Sampler):
 def build_dataloader(config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     _, preprocess = clip.load(config.MODEL.ARCH, device=device)
-    test_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TEST_FILE)
+    test_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TEST_FILE,type='test')
     indices = list(range(len(test_data)))
     sampler = SubsetRandomSampler(indices)
     test_loader = DataLoader(test_data, batch_size=1,sampler=sampler)
     print("test_data_finished!")
     if config.TRAIN.IF_TEST == 0:
-        train_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE)
+        train_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,shot=config.DATA.SHOTS,type='train')
         indices = list(range(len(train_data)))
         sampler = SubsetRandomSampler(indices)
         train_loader = DataLoader(train_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler)
-        val_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.VAL_FILE)
-        indices = list(range(len(val_data)))
-        sampler = SubsetRandomSampler(indices)
-        val_loader = DataLoader(val_data, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler)
+        val_data, val_loader,_,_ = split_dataset(train_data,config.TRAIN.BATCH_SIZE)
         print("val_data finished!")
         return train_data, val_data, test_data, train_loader, val_loader, test_loader
     else:

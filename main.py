@@ -18,9 +18,10 @@ def parse_option():
     parser.add_argument('--batch-size', type=int)
     parser.add_argument('--arch', type=str)
     parser.add_argument('--num_frames', type=int)
+    parser.add_argument('--temporal_pooling', type=str)
+    parser.add_argument('--prefix', type=str)
+    parser.add_argument('--test_file', type=str)
     parser.add_argument('--if_teacher', type=int)
-    parser.add_argument('--instructionFT', type=int)
-    parser.add_argument('--trans_frames', type=int)
     parser.add_argument('--output', type=str)
     args = parser.parse_args()
     config = get_config(args)
@@ -177,7 +178,7 @@ def main(config):
     print(f"Accuracy of the network on the {len(test_data)} test videos: {acc1:.1f}%")
     # else:
     train_data, val_data, test_data, train_loader, val_loader, test_loader = build_dataloader(config)
-    train_load_cache, train_load_F = split_dataset(train_data,config.TRAIN.BATCH_SIZE)
+    _, train_load_cache, _, train_load_F = split_dataset(train_data,config.TRAIN.BATCH_SIZE)
     class_names = [class_name for i, class_name in test_data.classes]
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = tbaclip.returnCLIP(config, class_names, device)
@@ -187,6 +188,8 @@ def main(config):
     # Construct the cache model by few-shot training set
     print("\nConstructing cache model by few-shot visual features and labels.")
     cache_keys, cache_values = build_cache_model(config, model, train_load_cache)
+    # print("finished!")
+    # pass
     # Pre-load val features
     print("\nLoading visual features and labels from val set.")
     val_features, val_labels = pre_load_features(config, "val", model, val_loader)

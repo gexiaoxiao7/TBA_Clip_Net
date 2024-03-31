@@ -12,7 +12,6 @@ _C.BASE = ['']
 _C.DATA = CN()
 _C.DATA.ROOT = ''
 _C.DATA.TRAIN_FILE = ''
-_C.DATA.VAL_FILE = ''
 _C.DATA.TEST_FILE = ''
 _C.DATA.DATASET = 'hmdb51'
 _C.DATA.NUM_FRAMES = 30
@@ -91,8 +90,12 @@ def update_config(config, args):
         config.DATA.NUM_FRAMES = args.num_frames
     if args.arch is not None:
         config.MODEL.ARCH = args.arch
-    if args.trans_frames is not None:
-        config.TRAINER.TRANS_FRAMES = args.trans_frames
+    if args.temporal_pooling:
+        config.TEMPORAL_POOLING = args.temporal_pooling
+    if args.prefix:
+        config.PREFIX = args.prefix
+    if args.test_file:
+        config.DATA.TRAIN_FILE = args.test_file
     if args.output is not None:
         config.OUTPUT= args.output
     # set local rank for distributed training

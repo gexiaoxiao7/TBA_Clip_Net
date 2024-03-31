@@ -8,6 +8,7 @@ from tqdm import tqdm
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 from collections import defaultdict
+import random
 
 class AverageMeter:
     """Computes and stores the average and current value"""
@@ -163,6 +164,7 @@ def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, 
 
 
 
+
 def split_dataset(dataset, batch_size):
     # Step 1: Create a list of indices for each label
     label_to_indices = defaultdict(list)
@@ -170,9 +172,10 @@ def split_dataset(dataset, batch_size):
         label = batch_data['label']
         label_to_indices[label].append(idx)
 
-    # Step 2: Split the indices for each label and add them to the new index lists
+    # Step 2: Shuffle and split the indices for each label and add them to the new index lists
     indices1, indices2 = [], []
     for indices in label_to_indices.values():
+        random.shuffle(indices)  # Shuffle the indices
         mid = len(indices) // 2
         indices1.extend(indices[:mid])
         indices2.extend(indices[mid:])
@@ -184,4 +187,4 @@ def split_dataset(dataset, batch_size):
     dataloader1 = DataLoader(subset1, batch_size=batch_size)
     dataloader2 = DataLoader(subset2, batch_size=batch_size)
 
-    return dataloader1, dataloader2
+    return subset1, dataloader1, subset2, dataloader2
