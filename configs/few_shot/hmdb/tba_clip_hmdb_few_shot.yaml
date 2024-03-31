@@ -1,6 +1,6 @@
 DATA:
-#    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
-    ROOT: '/root/autodl-fs/videos/'
+    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
+#    ROOT: '/root/autodl-fs/videos/'
     TRAIN_FILE: 'datasets_splits/hmdb51/train.txt'
     TEST_FILE: 'datasets_splits/hmdb51/test_split_1.txt'
     DATASET: hmdb51

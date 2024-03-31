@@ -59,9 +59,9 @@ class VideoDataset():
         #初始化一个列表，长度为num_classes，值为0
         class_counts = {}
         total_lines = sum(1 for line in open(self.ann_file, 'r'))
-        with open(self.ann_file, 'r') as fin:
-            lines = fin.readlines()
-            if self.type == 'train_cache':
+        if self.type == 'train_cache':
+            with open(self.ann_file, 'r') as fin:
+                lines = fin.readlines()
                 for idx in range(total_lines):
                     line = lines[total_lines - idx - 1]
                     line_split = line.strip().split()
@@ -75,7 +75,8 @@ class VideoDataset():
                         class_counts[label] += 1
                     data = self.prepare_frames(self.data_prefix + filename)
                     video_infos.append(dict(filename=filename, label=label, data=data))
-            else:
+        else:
+            with open(self.ann_file, 'r') as fin:
                 for idx, line in enumerate(fin):
                     if idx % 500 == 0 and idx != 0:
                         progress = (idx / total_lines) * 100
