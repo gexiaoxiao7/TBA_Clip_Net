@@ -1,5 +1,7 @@
 import pandas as pd
 from torch.utils.data import DataLoader
+from tqdm import tqdm
+
 from model.tld import TeacherDetection
 import numpy as np
 from PIL import Image
@@ -58,15 +60,14 @@ class VideoDataset():
         class_counts = {}
         total_lines = sum(1 for line in open(self.ann_file, 'r'))
         with open(self.ann_file, 'r') as fin:
-            for idx, line in enumerate(fin):
-                if idx % 500 == 0 and idx != 0:
-                    progress = (idx / total_lines) * 100
-                    print(f'Processed {idx} samples, progress: {progress:.2f}%')
-                line_split = line.strip().split()
-                filename, label = line_split
-                label = int(label)
-                if self.type == 'train':
-                    if label in class_counts and class_counts[label] >= self.shot * 2:
+            lines = fin.readlines()
+            if self.type == 'train_cache':
+                for idx in range(total_lines):
+                    line = lines[total_lines - idx - 1]
+                    line_split = line.strip().split()
+                    filename, label = line_split
+                    label = int(label)
+                    if label in class_counts and class_counts[label] >= self.shot:
                         continue
                     if label not in class_counts:
                         class_counts[label] = 1
@@ -74,9 +75,26 @@ class VideoDataset():
                         class_counts[label] += 1
                     data = self.prepare_frames(self.data_prefix + filename)
                     video_infos.append(dict(filename=filename, label=label, data=data))
-                else:
-                    data = self.prepare_frames(self.data_prefix + filename)
-                    video_infos.append(dict(filename=filename, label=label, data=data))
+            else:
+                for idx, line in enumerate(fin):
+                    if idx % 500 == 0 and idx != 0:
+                        progress = (idx / total_lines) * 100
+                        print(f'Processed {idx} samples, progress: {progress:.2f}%')
+                    line_split = line.strip().split()
+                    filename, label = line_split
+                    label = int(label)
+                    if self.type == 'train_F':
+                        if label in class_counts and class_counts[label] >= self.shot:
+                            continue
+                        if label not in class_counts:
+                            class_counts[label] = 1
+                        else:
+                            class_counts[label] += 1
+                        data = self.prepare_frames(self.data_prefix + filename)
+                        video_infos.append(dict(filename=filename, label=label, data=data))
+                    else:
+                        data = self.prepare_frames(self.data_prefix + filename)
+                        video_infos.append(dict(filename=filename, label=label, data=data))
         return video_infos
 
     def __len__(self):
@@ -111,12 +129,18 @@ def build_dataloader(config):
     test_loader = DataLoader(test_data, batch_size=1,sampler=sampler)
     print("test_data_finished!")
     if config.TRAIN.IF_TEST == 0:
-        train_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,shot=config.DATA.SHOTS,type='train')
-        indices = list(range(len(train_data)))
+        train_chache_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,shot=config.DATA.CACHE_SIZE,type='train_cache')
+        indices = list(range(len(train_chache_data)))
         sampler = SubsetRandomSampler(indices)
-        train_loader = DataLoader(train_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler)
-        val_data, val_loader,_,_ = split_dataset(train_data,config.TRAIN.BATCH_SIZE)
+        train_loader_cache = DataLoader(train_chache_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler)
+
+        train_data_F = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,
+                                         shot=config.DATA.SHOTS, type='train_F')
+        indices = list(range(len(train_data_F)))
+        sampler = SubsetRandomSampler(indices)
+        train_load_F = DataLoader(train_data_F, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler)
+        val_data, val_loader,_,_ = split_dataset(train_data_F,config.TRAIN.BATCH_SIZE)
         print("val_data finished!")
-        return train_data, val_data, test_data, train_loader, val_loader, test_loader
+        return train_chache_data, val_data, test_data,train_data_F, train_loader_cache, val_loader, test_loader,train_load_F
     else:
-        return None, None, test_data, None, None, test_loader
+        return None, None, test_data,None,None, None, test_loader,None

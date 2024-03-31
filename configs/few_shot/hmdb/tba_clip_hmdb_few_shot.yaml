@@ -1,6 +1,6 @@
 DATA:
-    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
-#    ROOT: '/root/autodl-fs/videos/'
+#    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
+    ROOT: '/root/autodl-fs/videos/'
     TRAIN_FILE: 'datasets_splits/hmdb51/train.txt'
     TEST_FILE: 'datasets_splits/hmdb51/test_split_1.txt'
     DATASET: hmdb51
@@ -8,7 +8,8 @@ DATA:
     NUM_CLASSES: 51
     LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
     IF_TEACHER: 0
-    SHOTS: 2
+    SHOTS: 1
+    CACHE_SIZE: 1
 MODEL:
     ARCH: ViT-L/14
     YOLO: 'Yolo-model/yolov8n.pt'
@@ -26,7 +27,7 @@ TIP_ADAPTER:
     LOAD_PRE_FEAT: 0
     INIT_BETA: 1
     INIT_ALPHA: 3
-OUTPUT: 'few_shot.csv'
+OUTPUT: 'test.csv'
 SEARCH_HP: 1
 SEARCH_SCALE: [7, 3]
 SEARCH_STEP: [200, 20]

@@ -20,6 +20,7 @@ _C.DATA.NUM_CLASSES = 51
 _C.DATA.LABEL_LIST = 'labels/hmdb51_org_base_labels.csv'
 _C.DATA.IF_TEACHER = 1
 _C.DATA.SHOTS = 2
+_C.DATA.CACHE_SIZE = 2
 # -----------------------------------------------------------------------------
 # Model settings
 # -----------------------------------------------------------------------------
@@ -96,8 +97,20 @@ def update_config(config, args):
         config.PREFIX = args.prefix
     if args.test_file:
         config.DATA.TRAIN_FILE = args.test_file
+    if args.test_file:
+        config.DATA.TRAIN_FILE = args.test_file
+    if args.load_cache:
+        config.TIP_ADAPTER.LOAD_CACHE = args.load_cache
+    if args.load_pre_feat:
+        config.TIP_ADAPTER.LOAD_PRE_FEAT = args.load_pre_feat
     if args.output is not None:
         config.OUTPUT= args.output
+    if args.zs is not None:
+        config.TRAIN.ZS = args.zs
+    if args.cache_size is not None:
+        config.DATA.CACHE_SIZE = args.cache_size
+    if args.shots is not None:
+        config.DATA.SHOTS = args.shots
     # set local rank for distributed training
     # config.LOCAL_RANK = args.local_rank
     config.freeze()
