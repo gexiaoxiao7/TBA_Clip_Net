@@ -80,7 +80,7 @@ class FSATransformerEncoder(nn.Module):
                  ]))
 
     def forward(self, x):
-
+        x = x.unsqueeze(2)
         b = x.shape[0]
         x = torch.flatten(x, start_dim=0, end_dim=1)  # extract spatial tokens from x
 

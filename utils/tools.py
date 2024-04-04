@@ -202,7 +202,11 @@ def attention_Fuc(attention_net, attention_feature):
     for feature in attention_feature:
         # feature = torch.unsqueeze(feature, 0)
         attention_weights = attention_net(feature)
-        video_feature = torch.sum(torch.bmm(attention_weights.transpose(1, 2), feature), dim=1)
+        # video_feature = torch.sum(torch.bmm(attention_weights.transpose(1, 2), feature), dim=1)
+
+        weighted_features = torch.mul(attention_weights, feature)
+        video_feature = torch.mean(weighted_features, dim=1)
+
         video_features = torch.unsqueeze(video_feature, 0)
         norm = video_features.norm(dim=-1, keepdim=True)
         video_features = video_features / norm

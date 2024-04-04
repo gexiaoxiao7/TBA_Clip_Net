@@ -199,7 +199,11 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
 
 
 def train_attention(clip_model,device,config,train_loader,clip_weights):
-    attention_net = Attention(feature_dim=clip_model.model.visual.output_dim).to(device).to(torch.half)
+    attention_net = FSATransformerEncoder(dim=clip_model.model.visual.output_dim, depth=6,
+                                      heads=1, dim_head=64,
+                                      mlp_dim=clip_model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
+                                      nh=1, nw=1,
+                                      dropout=0.1).to(device).to(torch.half)
     # attention_net = FSATransformerEncoder(dim=clip_model.visual.output_dim, depth=6,
     #                                   heads=1, dim_head=64,
     #                                   mlp_dim=clip_model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
@@ -227,7 +231,11 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
                 image_input = [item for sublist in image_input for item in sublist]
                 _,_,_,image_features = clip_model(image_input)
             attention_weights = attention_net(image_features)
-            video_feature = torch.sum(torch.bmm(attention_weights.transpose(1, 2), image_features), dim=1)
+            # video_feature = torch.sum(torch.bmm(attention_weights.transpose(1, 2), image_features), dim=1)
+
+            weighted_features = torch.mul(attention_weights, image_features)
+            video_feature = torch.mean(weighted_features, dim=1)
+
             video_features = torch.unsqueeze(video_feature, 0)
             norm = video_features.norm(dim=-1, keepdim=True)
             video_features = video_features / norm
@@ -344,7 +352,11 @@ def main(config):
         print("\nLoading visual features and labels from test set.")
         test_features, test_labels, attention_test_feature = pre_load_features(config, "test", model, test_loader)
         #load_attention
-        attention_net = Attention(feature_dim=model.model.visual.output_dim).to(device).to(torch.half)
+        attention_net = FSATransformerEncoder(dim=model.model.visual.output_dim, depth=6,
+                                          heads=1, dim_head=64,
+                                          mlp_dim=model.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
+                                          nh=1, nw=1,
+                                          dropout=0.1).to(device).to(torch.half)
         if config.MODEL.LOAD_ATTENTION == 0:
             train_attention(model, device, config, train_load_F, clip_weights)
         # ------------------------------------------ Tip-Adapter ------------------------------------------
