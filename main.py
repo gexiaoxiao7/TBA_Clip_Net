@@ -170,7 +170,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
         acc1, acc5 = cls_acc(tip_logits, test_labels)
 
         print("**** Tip-Adapter-F's test accuracy: {:.2f}. ****\n".format(acc1))
-        if acc1 > best_acc:
+        if acc1 >= best_acc:
             best_acc = acc1
             best_epoch = train_idx
             torch.save(adapter.weight, config.TIP_ADAPTER.CACHE_DIR + "/best_F_" + str(config.DATA.SHOTS) + "shots.pt")
@@ -229,8 +229,8 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
                     image = image.cpu().numpy()
                     image_input.append(image)
                 image_input = [item for sublist in image_input for item in sublist]
-                _,_,_,image_features = clip_model(image_input)
-            attention_weights = attention_net(image_features)
+                _,image_features,_,image_features_attention = clip_model(image_input)
+            attention_weights = attention_net(image_features_attention)
             # video_feature = torch.sum(torch.bmm(attention_weights.transpose(1, 2), image_features), dim=1)
 
             weighted_features = torch.mul(attention_weights, image_features)
@@ -335,7 +335,8 @@ def main(config):
             with open(config.OUTPUT, 'a') as f:
                 # Write the column names
                 f.write('Model,Arch,If_teacher,Num_Frames,Acc1,Acc5,Dataset,Shots,prefix,cache_size,TEMPORAL_POOLING\n')
-        train_cache_data, val_data, test_data,train_data_F, train_load_cache, val_loader, test_loader, train_load_F= build_dataloader(config)
+        (train_cache_data, val_data, test_data,train_data_F, train_data_a,
+         train_load_cache, val_loader, test_loader, train_load_F, train_load_a)= build_dataloader(config)
         class_names = [class_name for i, class_name in test_data.classes]
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model = tbaclip.returnCLIP(config, class_names, device)
@@ -357,7 +358,7 @@ def main(config):
                                           mlp_dim=model.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
                                           nh=1, nw=1,
                                           dropout=0.1).to(device).to(torch.half)
-        if config.MODEL.LOAD_ATTENTION == 0:
+        if config.MODEL.LOAD_ATTENTION == 0 and config.TEMPORAL_POOLING == 'attention':
             train_attention(model, device, config, train_load_F, clip_weights)
         # ------------------------------------------ Tip-Adapter ------------------------------------------
         if config.TRAIN.ZS == 1:

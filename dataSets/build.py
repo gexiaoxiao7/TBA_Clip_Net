@@ -62,7 +62,25 @@ class VideoDataset():
         if self.type == 'train_cache':
             with open(self.ann_file, 'r') as fin:
                 lines = fin.readlines()
-                for idx in range(total_lines):
+                start_idx = int(total_lines * 2 / 3)  # Calculate the start index
+                for idx in range(start_idx, total_lines):  # Start from the last third
+                    line = lines[total_lines - idx - 1]
+                    line_split = line.strip().split()
+                    filename, label = line_split
+                    label = int(label)
+                    if label in class_counts and class_counts[label] >= self.shot:
+                        continue
+                    if label not in class_counts:
+                        class_counts[label] = 1
+                    else:
+                        class_counts[label] += 1
+                    data = self.prepare_frames(self.data_prefix + filename)
+                    video_infos.append(dict(filename=filename, label=label, data=data))
+        elif self.type == 'train_a':
+            with open(self.ann_file, 'r') as fin:
+                lines = fin.readlines()
+                start_idx = int(total_lines * 2 / 3)  # Calculate the start index
+                for idx in range(start_idx, total_lines):  # Start from the last third
                     line = lines[total_lines - idx - 1]
                     line_split = line.strip().split()
                     filename, label = line_split
@@ -142,6 +160,15 @@ def build_dataloader(config):
         train_load_F = DataLoader(train_data_F, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler)
         val_data, val_loader,_,_ = split_dataset(train_data_F,config.TRAIN.BATCH_SIZE)
         print("val_data finished!")
-        return train_chache_data, val_data, test_data,train_data_F, train_loader_cache, val_loader, test_loader,train_load_F
+
+        # Add new train_data_a and train_load_a
+        train_data_a = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,
+                                         shot=config.DATA.SHOTS, type='train_a')  # Change the type to 'train_a'
+        indices = list(range(len(train_data_a)))
+        sampler = SubsetRandomSampler(indices)
+        train_load_a = DataLoader(train_data_a, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler)
+
+        return train_chache_data, val_data, test_data,train_data_F,train_data_a, train_loader_cache, val_loader, test_loader,train_load_F, train_load_a
     else:
-        return None, None, test_data,None, None, None, test_loader,None
+        return (None, None, test_data,None, None,
+                None, None, test_loader,None, None)
