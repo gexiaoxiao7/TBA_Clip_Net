@@ -201,7 +201,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
 def train_attention(clip_model,device,config,train_loader,clip_weights):
     attention_net = FSATransformerEncoder(dim=clip_model.model.visual.output_dim, depth=6,
                                       heads=1, dim_head=64,
-                                      mlp_dim=clip_model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
+                                      mlp_dim=clip_model.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
                                       nh=1, nw=1,
                                       dropout=0.1).to(device).to(torch.half)
     # attention_net = FSATransformerEncoder(dim=clip_model.visual.output_dim, depth=6,
