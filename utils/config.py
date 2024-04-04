@@ -27,6 +27,7 @@ _C.DATA.CACHE_SIZE = 2
 _C.MODEL = CN()
 _C.MODEL.ARCH = 'ViT-B/32'
 _C.MODEL.YOLO = 'Yolo-model/yolov8n.pt'
+_C.MODEL.LOAD_ATTENTION = 0
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------
@@ -103,6 +104,8 @@ def update_config(config, args):
         config.TIP_ADAPTER.LOAD_CACHE = args.load_cache
     if args.load_pre_feat:
         config.TIP_ADAPTER.LOAD_PRE_FEAT = args.load_pre_feat
+    if args.load_attention:
+        config.MODEL.LOAD_ATTENTION = args.load_attention
     if args.output is not None:
         config.OUTPUT= args.output
     if args.zs is not None:

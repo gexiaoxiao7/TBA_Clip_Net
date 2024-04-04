@@ -56,7 +56,7 @@ def build_cache_model(config, clip_model, train_loader_cache):
                         image = image.cpu().numpy()
                         image_input.append(image)
                     image_input = [item for sublist in image_input for item in sublist]
-                    _,image_features,_ = clip_model(image_input)
+                    _,image_features,_,_  = clip_model(image_input)
                     image_features = image_features.squeeze(0)
                     train_features.append(image_features)
                     if augment_idx == 0:
@@ -81,7 +81,7 @@ def build_cache_model(config, clip_model, train_loader_cache):
 
 def pre_load_features(config, split, clip_model, loader):
     if config.TIP_ADAPTER.LOAD_PRE_FEAT == 0:
-        features, labels = [], []
+        features, labels ,attention_feature = [], [], []
 
         with torch.no_grad():
             for idx, batch_data in enumerate(tqdm(loader)):
@@ -92,22 +92,25 @@ def pre_load_features(config, split, clip_model, loader):
                     image = image.cpu().numpy()
                     image_input.append(image)
                 image_input = [item for sublist in image_input for item in sublist]
-                _,image_features,_ = clip_model(image_input)
+                _,image_features,_,attention_format_feature= clip_model(image_input)
                 image_features /= image_features.norm(dim=-1, keepdim=True)
                 #把 image_features 从[1,1,512] 转换成[1,512]
                 image_features = image_features.squeeze(0)
                 features.append(image_features)
                 labels.append(label_id)
+                attention_feature.append(attention_format_feature)
 
         features, labels = torch.cat(features), torch.cat(labels)
 
         torch.save(features, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_f.pt")
         torch.save(labels, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_l.pt")
+        torch.save(attention_feature, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_a.pt")
 
     else:
         features = torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_f.pt")
         labels = torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_l.pt")
-    return features, labels
+        attention_feature = torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_a.pt")
+    return features, labels, attention_feature
 
 def cls_acc(output, label):
     acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
@@ -177,8 +180,12 @@ def split_dataset(dataset, batch_size):
     for indices in label_to_indices.values():
         random.shuffle(indices)  # Shuffle the indices
         mid = len(indices) // 2
-        indices1.extend(indices[:mid])
-        indices2.extend(indices[mid:])
+        if len(indices) % 2 == 1:  # Check if the number of samples is odd
+            indices1.extend(indices[:mid+1])  # If odd, subset1 gets one more sample
+            indices2.extend(indices[mid+1:])  # subset2 gets one less sample
+        else:
+            indices1.extend(indices[:mid])
+            indices2.extend(indices[mid:])
 
     # Step 3: Create two Subset objects and two DataLoaders
     subset1 = Subset(dataset, indices1)
@@ -188,3 +195,20 @@ def split_dataset(dataset, batch_size):
     dataloader2 = DataLoader(subset2, batch_size=batch_size)
 
     return subset1, dataloader1, subset2, dataloader2
+
+def attention_Fuc(attention_net, attention_feature):
+    attention_net.eval()
+    res = []
+    for feature in attention_feature:
+        # feature = torch.unsqueeze(feature, 0)
+        attention_weights = attention_net(feature)
+        video_feature = torch.sum(torch.bmm(attention_weights.transpose(1, 2), feature), dim=1)
+        video_features = torch.unsqueeze(video_feature, 0)
+        norm = video_features.norm(dim=-1, keepdim=True)
+        video_features = video_features / norm
+        res.append(video_features)
+    # 移除多余的维度
+    res = [x.squeeze() for x in res]
+    # 堆叠张量
+    res = torch.stack(res)
+    return res

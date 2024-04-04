@@ -4,27 +4,28 @@ DATA:
     TRAIN_FILE: 'datasets_splits/hmdb51/train.txt'
     TEST_FILE: 'datasets_splits/hmdb51/test/test.txt'
     DATASET: hmdb51
-    NUM_FRAMES: 16
+    NUM_FRAMES: 8
     NUM_CLASSES: 51
     LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
     IF_TEACHER: 0
     SHOTS: 1
     CACHE_SIZE: 1
 MODEL:
-    ARCH: ViT-L/14
+    ARCH: ViT-B/32
     YOLO: 'Yolo-model/yolov8n.pt'
+    LOAD_ATTENTION: 1
 TRAIN:
     IF_TEST: 0
-    ZS: 1
+    ZS: 0
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
     EPOCHS: 1
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''
-    LOAD_CACHE: 0
+    LOAD_CACHE: 1
     AUGMENT_EPOCH: 1
-    LOAD_PRE_FEAT: 0
+    LOAD_PRE_FEAT: 1
     INIT_BETA: 1
     INIT_ALPHA: 3
 OUTPUT: 'output_test.csv'

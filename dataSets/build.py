@@ -144,4 +144,4 @@ def build_dataloader(config):
         print("val_data finished!")
         return train_chache_data, val_data, test_data,train_data_F, train_loader_cache, val_loader, test_loader,train_load_F
     else:
-        return None, None, test_data,None,None, None, test_loader,None
+        return None, None, test_data,None, None, None, test_loader,None

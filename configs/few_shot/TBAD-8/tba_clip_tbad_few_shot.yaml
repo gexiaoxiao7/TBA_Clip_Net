@@ -1,19 +1,19 @@
 DATA:
 #    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
     ROOT: '/root/autodl-fs/videos/'
-    TRAIN_FILE: 'datasets_splits/hmdb51/train.txt'
+    TRAIN_FILE: 'datasets_splits/UCF-101/train.txt'
     TEST_FILE: 'datasets_splits/hmdb51/test_split_1.txt'
-    DATASET: hmdb51
+    DATASET: UCF-101
     NUM_FRAMES: 16
-    NUM_CLASSES: 51
-    LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
+    NUM_CLASSES: 101
+    LABEL_LIST: 'labels/UCF-101_base_labels.csv'
     IF_TEACHER: 0
-    SHOTS: 4
-    CACHE_SIZE: 4
+    SHOTS: 1
+    CACHE_SIZE: 1
 MODEL:
     ARCH: ViT-L/14
     YOLO: 'Yolo-model/yolov8n.pt'
-    LOAD_ATTENTION: 0
+    LOAD_ATTENTION: 1
 TRAIN:
     IF_TEST: 0
     ZS: 1

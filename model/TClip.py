@@ -2,10 +2,10 @@ from clip import clip
 import numpy as np
 import torch
 import torch.nn.functional as F
-from model.tp import TemporalPooling
 from torch import nn
 from PIL import Image
 import clip
+from model.tp import Attention
 import cv2
 
 
@@ -26,9 +26,13 @@ class VideoEncoder(nn.Module):
         video_info = [torch.from_numpy(x).to(self.device).type(self.dtype) for x in video_info]
         image_features = [self.model.encode_image(x) for x in video_info]
         image_features = torch.stack(image_features, dim=1).to(torch.half)
-        temporal_pooling = TemporalPooling(feature_dim=image_features.shape[-1],config=self.config).to(self.device).to(torch.half)
-        video_features = temporal_pooling(image_features)
-        return video_features
+        attention_format_features = image_features
+        video_feature = torch.mean(image_features, dim=1)
+        video_features = torch.unsqueeze(video_feature, 0)
+        if self.config.TEMPORAL_POOLING == 'mean':
+            return video_features, None
+        else:
+            return video_features, attention_format_features
 
 class Prompts_build(nn.Module):
     def __init__(self, classnames,device, config):
@@ -65,6 +69,7 @@ class TBA_Clip(nn.Module):
     def __init__(self, clip_model, preprocess, classnames, device,config):
         super().__init__()
         self.model = clip_model
+        self.attention = Attention(feature_dim=clip_model.visual.output_dim).to(device).to(torch.half)
         self.prompts_learner = Prompts_build(classnames = classnames, device = device, config = config)
         self.preprocess = preprocess
         self.text_encoder = TextEncoder(clip_model,device)
@@ -75,14 +80,14 @@ class TBA_Clip(nn.Module):
         self.classnames = classnames
     def forward(self, image):
         prompts = self.prompts_learner()
-        image_features = self.image_encoder(image)
+        image_features,attention_format_features = self.image_encoder(image)
         text_features = self.text_encoder(prompts)
-        norm = image_features.norm(dim=-1, keepdim=True)
-        image_feature = image_features / norm
         norm = text_features.norm(dim=-1, keepdim=True)
         text_feature = text_features / norm
+        norm = image_features.norm(dim=-1, keepdim=True)
+        image_feature = image_features / norm
         similarity = (100.0 * image_feature @ text_feature.T).softmax(dim=-1)
-        return similarity,image_features,text_features
+        return similarity,image_features,text_features,attention_format_features
 
 def returnCLIP(config,classnames,device):
     clip_model, preprocess = clip.load(config.MODEL.ARCH, device = device)
