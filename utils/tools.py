@@ -130,7 +130,7 @@ def cls_acc(output, label):
         value1, indices_1 = similarity.topk(1, dim=-1)
         value3, indices_3 = similarity.topk(3, dim=-1)
         value5, indices_5 = similarity.topk(5, dim=-1)
-        acc1, acc3 ,acc5 = 0, 0
+        acc1, acc3 ,acc5 = 0, 0,0
         for i in range(1): # batch_size
             if indices_1[i] == cur_label:
                 acc1 += 1
