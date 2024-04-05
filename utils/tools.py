@@ -165,7 +165,7 @@ def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, 
                 cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
                 clip_logits = 100. * features @ clip_weights.T
                 tip_logits = clip_logits + cache_logits * alpha
-                acc1, acc5 = cls_acc(tip_logits, labels)
+                acc1, acc3 ,acc5 = cls_acc(tip_logits, labels)
 
                 if acc1 > best_acc:
                     print("New best setting, beta: {:.2f}, alpha: {:.2f}; accuracy: {:.2f}".format(beta, alpha, acc1))
