@@ -92,19 +92,19 @@ def update_config(config, args):
         config.DATA.NUM_FRAMES = args.num_frames
     if args.arch is not None:
         config.MODEL.ARCH = args.arch
-    if args.temporal_pooling:
+    if args.temporal_pooling is not None:
         config.TEMPORAL_POOLING = args.temporal_pooling
-    if args.prefix:
+    if args.prefix is not None:
         config.PREFIX = args.prefix
-    if args.test_file:
+    if args.test_file is not None:
         config.DATA.TRAIN_FILE = args.test_file
-    if args.test_file:
+    if args.test_file is not None:
         config.DATA.TRAIN_FILE = args.test_file
-    if args.load_cache:
+    if args.load_cache is not None:
         config.TIP_ADAPTER.LOAD_CACHE = args.load_cache
-    if args.load_pre_feat:
+    if args.load_pre_feat is not None:
         config.TIP_ADAPTER.LOAD_PRE_FEAT = args.load_pre_feat
-    if args.load_attention:
+    if args.load_attention is not None:
         config.MODEL.LOAD_ATTENTION = args.load_attention
     if args.output is not None:
         config.OUTPUT= args.output
