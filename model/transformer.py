@@ -44,7 +44,7 @@ class FSAttention(nn.Module):
 
         out = einsum('b h i j, b h j d -> b h i d', attn, v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        return self.to_out(out),attn
 
 
 class FeedForward(nn.Module):

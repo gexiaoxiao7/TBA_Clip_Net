@@ -21,8 +21,12 @@ class TeacherDetection(nn.Module):
         # Find the largest 'person' box
         largest_box = max(person_boxes, key=lambda box: abs((box[3] - box[1]) * (box[2] - box[0])))
 
+        # Check if the top boundary of the largest box is in the upper half of the image
+        if largest_box[1] > image.shape[0] / 2:
+            return image
+
         # Find other 'person' boxes that intersect with the largest box
-        intersecting_boxes = [box for box in person_boxes if self._intersect(box, largest_box)]
+        intersecting_boxes = [box for box in boxes if self._intersect(box, largest_box)]
 
         # Combine all boxes into a large box
         large_box = self._combine_boxes([largest_box] + intersecting_boxes)

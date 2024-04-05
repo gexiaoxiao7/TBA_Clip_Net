@@ -49,8 +49,8 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     print("\n-------- Searching hyperparameters on the val set. --------")
     # Zero-shot CLIP
     clip_logits = (100. * val_features @ clip_weights.T).softmax(dim=-1)
-    acc1, acc5 = cls_acc(clip_logits, val_labels)
-    print("\n**** Zero-shot CLIP's val accuracy1: {:.2f}. , accuracy5: {:.2f} ****\n".format(acc1,acc5))
+    acc1, acc3,acc5 = cls_acc(clip_logits, val_labels)
+    print("\n**** Zero-shot CLIP's val accuracy1: {:.2f}. accuracy3: {:.2f} accuracy5: {:.2f} ****\n".format(acc1,acc3,acc5))
 
     # Tip-Adapter
     beta, alpha = config.TIP_ADAPTER.INIT_BETA, config.TIP_ADAPTER.INIT_ALPHA
@@ -59,9 +59,9 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
 
     tip_logits = clip_logits + cache_logits * alpha
-    acc1,acc5 = cls_acc(tip_logits, val_labels)
+    acc1,acc3,acc5 = cls_acc(tip_logits, val_labels)
 
-    print("**** Tip-Adapter's val accuracy1: {:.2f}. accuracy5: {:.2f}****\n".format(acc1,acc5))
+    print("**** Tip-Adapter's val accuracy1: {:.2f}. accuracy3: {:.2f} accuracy5: {:.2f}****\n".format(acc1,acc3,acc5))
 
 
     # Search Hyperparameters
@@ -71,22 +71,22 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
 
     # Zero-shot CLIP
     clip_logits = (100. * test_features @ clip_weights.T).softmax(dim=-1)
-    acc1, acc5 = cls_acc(clip_logits, test_labels)
-    print("\n**** Zero-shot CLIP's test accuracy1: {:.2f}. accuracy5:{:.2f}****\n".format(acc1,acc5))
+    acc1, acc3 ,acc5 = cls_acc(clip_logits, test_labels)
+    print("\n**** Zero-shot CLIP's test accuracy1: {:.2f}. accuracy3:{:.2f} accuracy5:{:.2f}****\n".format(acc1,acc3,acc5))
     with open(config.OUTPUT, 'a') as f:
         f.write(
-            f'Zero-shot Clip,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc5:.3f},{config.DATA.DATASET},'
+            f'Zero-shot Clip,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc3:.3f},{acc5:.3f},{config.DATA.DATASET},'
             f'0,{config.PREFIX},0,{config.TEMPORAL_POOLING}\n')
     # Tip-Adapter
     affinity = test_features @ cache_keys
     cache_logits = ((-1) * (best_beta - best_beta * affinity)).exp() @ cache_values.to(affinity.device)
 
     tip_logits = clip_logits + cache_logits * best_alpha
-    acc1, acc5 = cls_acc(tip_logits, test_labels)
-    print("**** Tip-Adapter's test accuracy1: {:.2f}. accuracy5: {:.2f} ****\n".format(acc1,acc5))
+    acc1, acc3 ,acc5 = cls_acc(tip_logits, test_labels)
+    print("**** Tip-Adapter's test accuracy1: {:.2f}. accuracy3: {:.2f} accuracy5: {:.2f} ****\n".format(acc1,acc3,acc5))
     with open(config.OUTPUT, 'a') as f:
         f.write(
-            f'Tip-Adapter,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc5:.3f},{config.DATA.DATASET},'
+            f'Tip-Adapter,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc3:.3f},{acc5:.3f},{config.DATA.DATASET},'
             f'0 ,{config.PREFIX},{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}\n')
 
 def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels, clip_weights,
@@ -167,7 +167,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
         cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
         clip_logits = 100. * test_features @ clip_weights.T
         tip_logits =  clip_logits + cache_logits * alpha
-        acc1, acc5 = cls_acc(tip_logits, test_labels)
+        acc1, acc3 ,acc5 = cls_acc(tip_logits, test_labels)
 
         print("**** Tip-Adapter-F's test accuracy: {:.2f}. ****\n".format(acc1))
         if acc1 >= best_acc:
@@ -190,11 +190,11 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
     cache_logits = ((-1) * (best_beta - best_beta * affinity)).exp() @ cache_values.to(affinity.device)
 
     tip_logits = clip_logits + cache_logits * best_alpha
-    acc1,acc5 = cls_acc(tip_logits, test_labels)
-    print("**** Tip-Adapter-F's test accuracy1: {:.2f}. , accuracy5: {:.2f}.****\n".format(max(best_acc, acc1),acc5))
+    acc1,acc3,acc5 = cls_acc(tip_logits, test_labels)
+    print("**** Tip-Adapter-F's test accuracy1: {:.2f}. , accuracy3: {:.2f},accuracy5: {:.2f}.****\n".format(max(best_acc, acc1),acc3,acc5))
     with open(config.OUTPUT, 'a') as f:
         f.write(
-            f'Tip-Adapter-F,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc5:.3f},{config.DATA.DATASET},'
+            f'Tip-Adapter-F,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc3:.3f},{acc5:.3f},{config.DATA.DATASET},'
             f'{config.DATA.SHOTS} ,{config.PREFIX},{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}\n')
 
 
@@ -273,7 +273,7 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
 @torch.no_grad()
 def validate(val_loader,model,config):
     b = val_loader.batch_size
-    acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
+    acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(),AverageMeter()
     with torch.no_grad():
         for idx, batch_data in enumerate(val_loader):
             images = batch_data['data']
@@ -283,21 +283,26 @@ def validate(val_loader,model,config):
                 image = image.cpu().numpy()
                 image_input.append(image)
             image_input = [item for sublist in image_input for item in sublist]
-            tot_similarity, _, _ = model(image_input)
+            tot_similarity, _, _,_ = model(image_input)
             values_1, indices_1 = tot_similarity.topk(1, dim=-1)
+            values_3, indices_3 = tot_similarity.topk(3, dim=-1)
             values_5, indices_5 = tot_similarity.topk(5, dim=-1)
-            acc1, acc5 = 0, 0
+            acc1, acc3 ,acc5 = 0, 0, 0
             for i in range(b):
                 if indices_1[i] == label_id[i]:
                     acc1 += 1
+                if label_id[i] in indices_3[i]:
+                    acc3 += 1
                 if label_id[i] in indices_5[i]:
                     acc5 += 1
             acc1_meter.update(float(acc1) / b * 100, b)
+            acc3_meter.update(float(acc3) / b * 100, b)
             acc5_meter.update(float(acc5) / b * 100, b)
-            if idx % 200 == 0:
-                print( f'Test: [{idx}/{len(val_loader)}]\t'
-                        f'Acc@1: {acc1_meter.avg:.3f}\t')
+            # if idx % 200 == 0:
+            print( f'Test: [{idx}/{len(val_loader)}]\t'
+                    f'Acc@1: {acc1_meter.avg:.3f}\t')
         print(f'Acc@1: {acc1_meter.avg:.3f}\t'
+              f'Acc@3: {acc3_meter.avg:.3f}\t'
               f'Acc@5: {acc5_meter.avg:.3f}\t')
         if not os.path.exists(config.OUTPUT):
             with open(config.OUTPUT, 'w') as f:
@@ -308,7 +313,7 @@ def validate(val_loader,model,config):
                 # Write the column names
                 f.write('Model,If_teacher,Num_Frames,Acc1,Acc5,Dataset\n')
         with open(config.OUTPUT, 'a') as f:
-            f.write(f'{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1_meter.avg:.3f},{acc5_meter.avg:.3f},{config.DATA.DATASET}\n')
+            f.write(f'{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1_meter.avg:.3f},{acc3_meter.avg:.3f},{acc5_meter.avg:.3f},{config.DATA.DATASET}\n')
         return acc1_meter.avg
 
 def main(config):
@@ -320,7 +325,8 @@ def main(config):
     config.freeze()  # Freeze the config again
     #zero-shot
     if config.TRAIN.IF_TEST == 1:
-        _, _,test_data,_,_,_,test_loader,_ = build_dataloader(config)
+        (_, _, test_data, _, _,
+        _, _, test_loader, _, _) = build_dataloader(config)
         class_names = [class_name for i, class_name in test_data.classes]
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model = tbaclip.returnCLIP(config,class_names,device)
@@ -334,7 +340,7 @@ def main(config):
         if os.stat(config.OUTPUT).st_size == 0:
             with open(config.OUTPUT, 'a') as f:
                 # Write the column names
-                f.write('Model,Arch,If_teacher,Num_Frames,Acc1,Acc5,Dataset,Shots,prefix,cache_size,TEMPORAL_POOLING\n')
+                f.write('Model,Arch,If_teacher,Num_Frames,Acc1,Acc3,Acc5,Dataset,Shots,prefix,cache_size,TEMPORAL_POOLING\n')
         (train_cache_data, val_data, test_data,train_data_F, train_data_a,
          train_load_cache, val_loader, test_loader, train_load_F, train_load_a)= build_dataloader(config)
         class_names = [class_name for i, class_name in test_data.classes]

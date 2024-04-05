@@ -62,8 +62,8 @@ class VideoDataset():
         if self.type == 'train_cache':
             with open(self.ann_file, 'r') as fin:
                 lines = fin.readlines()
-                start_idx = int(total_lines * 2 / 3)  # Calculate the start index
-                for idx in range(start_idx, total_lines):  # Start from the last third
+                # start_idx = int(total_lines * 2 / 3)  # Calculate the start index
+                for idx in range(total_lines):  # Start from the last third
                     line = lines[total_lines - idx - 1]
                     line_split = line.strip().split()
                     filename, label = line_split
@@ -79,8 +79,8 @@ class VideoDataset():
         elif self.type == 'train_a':
             with open(self.ann_file, 'r') as fin:
                 lines = fin.readlines()
-                start_idx = int(total_lines * 2 / 3)  # Calculate the start index
-                for idx in range(start_idx, total_lines):  # Start from the last third
+                # start_idx = int(total_lines * 1 / 3)  # Calculate the start index
+                for idx in range(total_lines):  # Start from the last third
                     line = lines[total_lines - idx - 1]
                     line_split = line.strip().split()
                     filename, label = line_split

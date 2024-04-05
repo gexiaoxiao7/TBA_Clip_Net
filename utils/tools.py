@@ -1,4 +1,3 @@
-import numpy
 import torch.distributed as dist
 import torch
 import clip
@@ -9,6 +8,11 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 from collections import defaultdict
 import random
+import cv2
+from PIL import Image
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 class AverageMeter:
     """Computes and stores the average and current value"""
@@ -32,8 +36,12 @@ def clip_classifier(classnames,clip_model,config,device):
     with torch.no_grad():
         prompts_learner = Prompts_build(classnames=classnames,config=config,device=device)
         prompts = prompts_learner()
-        x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
-        clip_weights = clip_model.model.encode_text(x)
+        x = [clip.tokenize(prompt).to(device) for prompt in prompts]
+        clip_weights = [clip_model.model.encode_text(i) for i in x]
+        # x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
+        clip_weights = torch.stack(clip_weights)
+        clip_weights = clip_weights.mean(dim=1, keepdim=True)
+        clip_weights = clip_weights.squeeze(dim=1)
         clip_weights /= clip_weights.norm(dim=-1, keepdim=True)
     return clip_weights
 
@@ -113,23 +121,27 @@ def pre_load_features(config, split, clip_model, loader):
     return features, labels, attention_feature
 
 def cls_acc(output, label):
-    acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
+    acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(), AverageMeter()
     # label = label.reshape(-1, 1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     label = torch.tensor(label).to(device)
     for idx, similarity in enumerate(output):
         cur_label = label[idx]
         value1, indices_1 = similarity.topk(1, dim=-1)
+        value3, indices_3 = similarity.topk(3, dim=-1)
         value5, indices_5 = similarity.topk(5, dim=-1)
-        acc1, acc5 = 0, 0
+        acc1, acc3 ,acc5 = 0, 0
         for i in range(1): # batch_size
             if indices_1[i] == cur_label:
                 acc1 += 1
+            if cur_label in indices_3:
+                acc3 += 1
             if cur_label in indices_5:
                 acc5 += 1
         acc1_meter.update(float(acc1) * 100,1)
+        acc3_meter.update(float(acc3) * 100, 1)
         acc5_meter.update(float(acc5) * 100,1)
-    return acc1_meter.avg, acc5_meter.avg
+    return acc1_meter.avg, acc3_meter.avg ,acc5_meter.avg
 
 
 def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, adapter=None):
@@ -216,3 +228,21 @@ def attention_Fuc(attention_net, attention_feature):
     # 堆叠张量
     res = torch.stack(res)
     return res
+
+def visulize_attention_ratio(img_path, attention_mask, ratio=0.5, cmap="jet"):
+    # load the image
+    img = Image.open(img_path, mode='r')
+    img_h, img_w = img.size[0], img.size[1]
+    plt.subplots(nrows=1, ncols=1, figsize=(0.02 * img_h, 0.02 * img_w))
+
+    # scale the image
+    img_h, img_w = int(img.size[0] * ratio), int(img.size[1] * ratio)
+    img = img.resize((img_h, img_w))
+    plt.imshow(img, alpha=1)
+    plt.axis('off')
+
+    # normalize the attention mask
+    mask = cv2.resize(attention_mask, (img_h, img_w))
+    normed_mask = mask / mask.max()
+    normed_mask = (normed_mask * 255).astype('uint8')
+    plt.imshow(normed_mask, alpha=0.5, interpolation='nearest', cmap=cmap)

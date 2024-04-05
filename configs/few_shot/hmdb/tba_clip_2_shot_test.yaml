@@ -1,14 +1,14 @@
 DATA:
     ROOT: 'E:/DATASETS/hmdb51_org/videos/'
 #    ROOT: '/root/autodl-fs/videos/'
-    TRAIN_FILE: 'datasets_splits/hmdb51/train.txt'
+    TRAIN_FILE: 'datasets_splits/hmdb51/test/train.txt'
     TEST_FILE: 'datasets_splits/hmdb51/test/test.txt'
     DATASET: hmdb51
     NUM_FRAMES: 8
     NUM_CLASSES: 51
     LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
     IF_TEACHER: 0
-    SHOTS: 1
+    SHOTS: 8
     CACHE_SIZE: 1
 MODEL:
     ARCH: ViT-B/32
@@ -32,6 +32,6 @@ OUTPUT: 'output_test.csv'
 SEARCH_HP: 1
 SEARCH_SCALE: [7, 3]
 SEARCH_STEP: [200, 20]
-PREFIX: 'The action of the person in the picture is '
+PREFIX: ['The action of the person in the picture is ', 'A person was ', 'A photo of ']
 SUFFIX: ''
-TEMPORAL_POOLING: 'mean'
+TEMPORAL_POOLING: 'attention'
