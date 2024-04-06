@@ -98,9 +98,7 @@ def update_config(config, args):
     if args.prefix is not None:
         config.PREFIX = args.prefix
     if args.test_file is not None:
-        config.DATA.TRAIN_FILE = args.test_file
-    if args.test_file is not None:
-        config.DATA.TRAIN_FILE = args.test_file
+        config.DATA.TEST_FILE = args.test_file
     if args.load_cache is not None:
         config.TIP_ADAPTER.LOAD_CACHE = args.load_cache
     if args.load_pre_feat is not None:
