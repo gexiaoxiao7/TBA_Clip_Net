@@ -2,8 +2,13 @@
 # num_frames = 16, arc =  Vit-L/14  prefix, cache_size = 8, shots = 8 , temproal_pooling = attention
 # zs = 0
 
+# 不同backbone
+# python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --arch ViT-B/16 --load_attention 0 --load_cache 0 --load_pre_feat 0
+# python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --arch ViT-L/14 --load_attention 0 --load_cache 0 --load_pre_feat 0
+# python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --arch ViT-L/14@336px --load_attention 0 --load_cache 0 --load_pre_feat 0
 # base
-python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --load_attention 0 --load_cache 0 --load_pre_feat 0
+# python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --load_attention 0 --load_cache 0 --load_pre_feat 0
+python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --load_attention 0
 
 # zero-shot
 python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --zs 1
@@ -12,10 +17,7 @@ python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --zs 1
 python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --num_frames 8
 python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --num_frames 32
 
-# 不同backbone
-python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --arch ViT-B/16
-python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --arch ViT-B/32
-python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --arch ViT-L/14@336px
+
 
 #不同cache_size
 python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --cache_size 1 --load_cache 0
@@ -62,3 +64,4 @@ python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --temp
 # 手工修改
 
 
+shutdown -h now

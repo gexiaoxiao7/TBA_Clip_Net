@@ -11,7 +11,7 @@ DATA:
     SHOTS: 8
     CACHE_SIZE: 8
 MODEL:
-    ARCH: ViT-L/14
+    ARCH: ViT-L/14@336px
     YOLO: 'Yolo-model/yolov8n.pt'
     LOAD_ATTENTION: 1
 TRAIN:
@@ -19,7 +19,7 @@ TRAIN:
     ZS: 0
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
-    EPOCHS: 5
+    EPOCHS: 20
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''

@@ -77,12 +77,12 @@ def build_cache_model(config, clip_model, train_loader_cache):
         cache_keys = cache_keys.permute(1, 0)
         cache_values = F.one_hot(torch.cat(cache_values, dim=0)).half()
 
-        torch.save(cache_keys, config.TIP_ADAPTER.CACHE_DIR + '/keys_' + str(config.DATA.SHOTS) + "shots.pt")
-        torch.save(cache_values, config.TIP_ADAPTER.CACHE_DIR + '/values_' + str(config.DATA.SHOTS) + "shots.pt")
+        torch.save(cache_keys, config.TIP_ADAPTER.CACHE_DIR + '/keys_' + str(config.DATA.CACHE_SIZE) + "shots.pt")
+        torch.save(cache_values, config.TIP_ADAPTER.CACHE_DIR + '/values_' + str(config.DATA.CACHE_SIZE) + "shots.pt")
 
     else:
-        cache_keys = torch.load(config.TIP_ADAPTER.CACHE_DIR + '/keys_' + str(config.DATA.SHOTS) + "shots.pt")
-        cache_values = torch.load(config.TIP_ADAPTER.CACHE_DIR + '/values_' + str(config.DATA.SHOTS) + "shots.pt")
+        cache_keys = torch.load(config.TIP_ADAPTER.CACHE_DIR + '/keys_' + str(config.DATA.CACHE_SIZE) + "shots.pt")
+        cache_values = torch.load(config.TIP_ADAPTER.CACHE_DIR + '/values_' + str(config.DATA.CACHE_SIZE) + "shots.pt")
 
     return cache_keys, cache_values
 
