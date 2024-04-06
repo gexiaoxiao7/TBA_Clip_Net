@@ -15,6 +15,7 @@ MODEL:
     YOLO: 'Yolo-model/yolov8n.pt'
     LOAD_ATTENTION: 1
 TRAIN:
+    LABEL_SMOOTH: 1
     IF_TEST: 0
     ZS: 0
     BATCH_SIZE: 1 # BS 64

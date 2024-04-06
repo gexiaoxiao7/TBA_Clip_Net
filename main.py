@@ -144,7 +144,9 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
             acc1_meter.update(float(acc1) / b * 100, b)
             acc5_meter.update(float(acc5) / b * 100, b)
             #修改成label_smooth的损失函数
-            criterion = LabelSmoothingCrossEntropy()
+
+            # 用交叉熵损失函数
+            criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
             label_id = label_id.to(tip_logits.device)
             #把tip_logits的维度从[1,1,51]转到[1,51]
             tip_logits = tip_logits.squeeze(1)
@@ -251,7 +253,7 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
             acc1_meter.update(float(acc1) / b * 100, b)
             acc5_meter.update(float(acc5) / b * 100, b)
             # 修改成label_smooth的损失函数
-            criterion = LabelSmoothingCrossEntropy()
+            criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
             label_id = label_id.to(clip_logits.device)
             # 把tip_logits的维度从[1,1,51]转到[1,51]
             clip_logits = clip_logits.squeeze(1)

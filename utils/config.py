@@ -33,6 +33,7 @@ _C.MODEL.LOAD_ATTENTION = 0
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
 TRAINER = True
+_C.TRAIN.LABEL_SMOOTH = 1
 _C.TRAIN.EPOCHS = 30
 _C.TRAIN.ZS = 0
 _C.TRAIN.IF_TEST = 1
