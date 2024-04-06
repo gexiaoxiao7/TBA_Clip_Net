@@ -1,37 +1,38 @@
 DATA:
-#    ROOT: 'E:/DATASETS/hmdb51_org/videos/'
+#    ROOT: 'E:/DATASETS/TBAD-8/tbad-8/'
     ROOT: '/root/autodl-fs/videos/'
     TRAIN_FILE: 'datasets_splits/hmdb51/train.txt'
-    TEST_FILE: 'datasets_splits/hmdb51/test_split_1.txt'
+    TEST_FILE: ''
     DATASET: hmdb51
     NUM_FRAMES: 16
-    NUM_CLASSES: 51
+    NUM_CLASSES: 8
     LABEL_LIST: 'labels/hmdb51_org_base_labels_insFT.csv'
-    IF_TEACHER: 0
-    SHOTS: 4
-    CACHE_SIZE: 4
+    IF_TEACHER: 1
+    SHOTS: 8
+    CACHE_SIZE: 8
 MODEL:
-    ARCH: ViT-L/14
+    ARCH: ViT-L/14@336px
     YOLO: 'Yolo-model/yolov8n.pt'
-    LOAD_ATTENTION: 0
+    LOAD_ATTENTION: 1
 TRAIN:
     IF_TEST: 0
-    ZS: 1
+    ZS: 0
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
-    EPOCHS: 10
+    EPOCHS: 20
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''
-    LOAD_CACHE: 0
+    LOAD_CACHE: 1
     AUGMENT_EPOCH: 30
-    LOAD_PRE_FEAT: 0
+    LOAD_PRE_FEAT: 1
     INIT_BETA: 1
     INIT_ALPHA: 3
 OUTPUT: '/root/autodl-fs/results.csv'
+#OUTPUT: 'output_test_tip.csv'
 SEARCH_HP: 1
 SEARCH_SCALE: [7, 3]
 SEARCH_STEP: [200, 20]
-PREFIX: 'The action of the person in the picture is '
+PREFIX: ["The action of the person in the picture is", "A person was", "A photo of"]
 SUFFIX: ''
-TEMPORAL_POOLING: 'mean'
+TEMPORAL_POOLING: 'attention'
