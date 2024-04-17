@@ -1,3 +1,3 @@
 # Results
 
-![本地路径](results.jpg)
+![结果图](results.jpg)
