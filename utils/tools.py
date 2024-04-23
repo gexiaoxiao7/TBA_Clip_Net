@@ -40,8 +40,6 @@ def clip_classifier(classnames,clip_model,config,device):
         # x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
         clip_weights = torch.stack(clip_weights)
         clip_weights = clip_weights.squeeze(dim=1)
-        clip_weights = clip_weights.mean(dim=1, keepdim=True)
-        clip_weights = clip_weights.squeeze(dim=1)
         clip_weights /= clip_weights.norm(dim=-1, keepdim=True)
     return clip_weights
 
