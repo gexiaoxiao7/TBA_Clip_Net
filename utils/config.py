@@ -64,7 +64,7 @@ _C.OUTPUT = ''
 _C.SEARCH_HP = 1
 _C.SEARCH_SCALE = [7,3]
 _C.SEARCH_STEP = [200,20]
-_C.PREFIX = ['','']
+_C.PREFIX = ''
 _C.SUFFIX = ''
 _C.TEMPORAL_POOLING = ''
 def _update_config_from_file(config, cfg_file):

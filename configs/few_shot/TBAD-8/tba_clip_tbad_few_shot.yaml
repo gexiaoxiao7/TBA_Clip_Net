@@ -16,8 +16,8 @@ MODEL:
     LOAD_ATTENTION: 0
 TRAIN:
     LABEL_SMOOTH: 1
-    IF_TEST: 1
-    ZS: 0
+    IF_TEST: 0
+    ZS: 1
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
     EPOCHS: 20
@@ -34,6 +34,6 @@ OUTPUT: 'output_test_tip.csv'
 SEARCH_HP: 1
 SEARCH_SCALE: [7, 3]
 SEARCH_STEP: [200, 20]
-PREFIX: ["The action of the person in the picture is", "A person was", "A photo of"]
+PREFIX: "The action of the person in the picture is"
 SUFFIX: ''
 TEMPORAL_POOLING: 'attention'

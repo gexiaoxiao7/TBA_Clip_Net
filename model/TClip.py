@@ -40,12 +40,12 @@ class Prompts_build(nn.Module):
         self.classnames = classnames
         self.device = device
         self.config = config
-    def construct_prompts(self, ctx):
+    def construct_prompts(self, cls):
         # dim0 is either batch_size (during training) or n_cls (during testing)
         # ctx: context tokens, with shape of (dim0, n_ctx, ctx_dim)
         # prefix: the sos token, with shape of (n_cls, 1, ctx_dim)
         # suffix: remaining tokens, with shape of (n_cls, *, ctx_dim)
-        prompt = [x + ctx + self.config.SUFFIX for x in self.config.PREFIX]
+        prompt = self.config.PREFIX + cls + self.config.SUFFIX
         return prompt
     def forward(self):
         prompts = [self.construct_prompts(x) for x in self.classnames]
@@ -61,12 +61,9 @@ class TextEncoder(nn.Module):
     def forward(self, prompts):
         x = [clip.tokenize(prompt).to(self.device) for prompt in prompts]
         clip_weights = [self.model.encode_text(i) for i in x]
-        # x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
         clip_weights = torch.stack(clip_weights)
-        clip_weights = clip_weights.mean(dim=1, keepdim=True)
         clip_weights = clip_weights.squeeze(dim=1)
         return clip_weights
-
 
 
 class TBA_Clip(nn.Module):
