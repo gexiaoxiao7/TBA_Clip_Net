@@ -114,7 +114,7 @@ class PromptLearner(nn.Module):
         return prompts
 
     def forward(self, im_features):
-        im_features = im_features.squeeze(0)
+        im_features = im_features.reshape(-1, im_features.shape[-1])
         prefix = self.token_prefix
         suffix = self.token_suffix
         ctx = self.ctx  # (n_ctx, ctx_dim)
