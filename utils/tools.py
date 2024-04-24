@@ -1,7 +1,6 @@
 import torch.distributed as dist
 import torch
 import clip
-from model.TClip import Prompts_build
 import os
 from tqdm import tqdm
 import torch.nn.functional as F
@@ -226,6 +225,19 @@ def attention_Fuc(attention_net, attention_feature):
     # 堆叠张量
     res = torch.stack(res)
     return res
+
+def promptlearner_Fuc(prompt_learner, image_feature, clip_model):
+    prompt_learner.eval()
+    logits = []
+    prompts = prompt_learner(image_feature)
+    for pts_i, imf_i in zip(prompts, image_feature):
+        text_features = clip_model.text_encoder(pts_i, prompt_learner.tokenized_prompts)
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        l_i = (clip_model.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
+        logits.append(l_i)
+    logits = torch.stack(logits)
+    return logits
+
 
 def visulize_attention_ratio(img_path, attention_mask, ratio=0.5, cmap="jet"):
     # load the image

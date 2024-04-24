@@ -28,6 +28,7 @@ _C.MODEL = CN()
 _C.MODEL.ARCH = 'ViT-B/32'
 _C.MODEL.YOLO = 'Yolo-model/yolov8n.pt'
 _C.MODEL.LOAD_ATTENTION = 0
+_C.MODEL.LOAD_LP = 0
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------
@@ -47,6 +48,7 @@ _C.TRAIN.OPTIMIZER = 'adamw'
 _C.TRAIN.OPT_LEVEL = 'O1'
 _C.TRAIN.AUTO_RESUME = 0
 _C.TRAIN.USE_CHECKPOINT = 0
+_C.TRAIN.LP = 0
 # -----------------------------------------------------------------------------
 # Tip-adapter settings
 # -----------------------------------------------------------------------------
@@ -58,14 +60,18 @@ _C.TIP_ADAPTER.INIT_BETA = 1
 _C.TIP_ADAPTER.INIT_ALPHA = 3
 _C.TIP_ADAPTER.LOAD_PRE_FEAT = 0
 # -----------------------------------------------------------------------------
+# Text Prompt Settings
+# -----------------------------------------------------------------------------
+_C.TEXT_PROMPT = CN()
+_C.TEXT_PROMPT.N_CTX = 9
+_C.TEXT_PROMPT.CTX_INIT = "The action of the person in the picture is"
+# -----------------------------------------------------------------------------
 # Output settings
 # -----------------------------------------------------------------------------
 _C.OUTPUT = ''
 _C.SEARCH_HP = 1
 _C.SEARCH_SCALE = [7,3]
 _C.SEARCH_STEP = [200,20]
-_C.PREFIX = ''
-_C.SUFFIX = ''
 _C.TEMPORAL_POOLING = ''
 def _update_config_from_file(config, cfg_file):
     config.defrost()
@@ -95,8 +101,6 @@ def update_config(config, args):
         config.MODEL.ARCH = args.arch
     if args.temporal_pooling is not None:
         config.TEMPORAL_POOLING = args.temporal_pooling
-    if args.prefix is not None:
-        config.PREFIX = args.prefix
     if args.test_file is not None:
         config.DATA.TEST_FILE = args.test_file
     if args.load_cache is not None:
@@ -113,6 +117,10 @@ def update_config(config, args):
         config.DATA.CACHE_SIZE = args.cache_size
     if args.shots is not None:
         config.DATA.SHOTS = args.shots
+    if args.lp is not None:
+        config.TRAIN.LP = args.lp
+    if args.load_lp is not None:
+        config.MODEL.LOAD_LP = args.load_lp
     # set local rank for distributed training
     # config.LOCAL_RANK = args.local_rank
     config.freeze()

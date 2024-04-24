@@ -13,27 +13,30 @@ DATA:
 MODEL:
     ARCH: ViT-L/14@336px
     YOLO: 'Yolo-model/yolov8n.pt'
-    LOAD_ATTENTION: 0
+    LOAD_ATTENTION: 1
+    LOAD_LP: 0
 TRAIN:
     LABEL_SMOOTH: 1
     IF_TEST: 0
-    ZS: 1
+    ZS: 0
+    LP: 1
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
     EPOCHS: 1
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''
-    LOAD_CACHE: 0
+    LOAD_CACHE: 1
     AUGMENT_EPOCH: 1
-    LOAD_PRE_FEAT: 0
+    LOAD_PRE_FEAT: 1
     INIT_BETA: 1
     INIT_ALPHA: 3
+TEXT_PROMPT:
+    N_CTX: 4
+    CTX_INIT: ""
 #OUTPUT: '/root/autodl-fs/results.csv'
 OUTPUT: 'output_test_tip.csv'
 SEARCH_HP: 1
 SEARCH_SCALE: [7, 3]
 SEARCH_STEP: [200, 20]
-PREFIX: "The action of the person in the picture is"
-SUFFIX: ''
 TEMPORAL_POOLING: 'attention'
