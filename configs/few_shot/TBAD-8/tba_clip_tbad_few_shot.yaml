@@ -13,8 +13,8 @@ DATA:
 MODEL:
     ARCH: ViT-L/14@336px
     YOLO: 'Yolo-model/yolov8n.pt'
-    LOAD_ATTENTION: 1
-    LOAD_LP: 1
+    LOAD_ATTENTION: 0
+    LOAD_LP: 0
 TRAIN:
     LABEL_SMOOTH: 1
     IF_TEST: 0
@@ -32,8 +32,8 @@ TIP_ADAPTER:
     INIT_BETA: 1
     INIT_ALPHA: 3
 TEXT_PROMPT:
-    N_CTX: 4
-    CTX_INIT: ""
+    N_CTX: 3
+    CTX_INIT: "a photo of"
 #OUTPUT: '/root/autodl-fs/results.csv'
 OUTPUT: 'output_test_tip.csv'
 SEARCH_HP: 1

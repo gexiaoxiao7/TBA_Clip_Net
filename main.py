@@ -455,12 +455,12 @@ def main(config):
                                           nh=1, nw=1,
                                           dropout=0.1).to(device).to(torch.half)
         print("\nTraining attention Net.")
-        if config.MODEL.LOAD_ATTENTION == 0 and config.TEMPORAL_POOLING == 'attention':
+        if config.MODEL.LOAD_ATTENTION == 0 and config.TEMPORAL_POOLING == 'attention' and config.TRAIN.ZS == 0:
             train_attention(model, device, config, train_load_F, clip_weights)
         # use prompt_learner
         print("\nTraining Prompt Learner.")
         prompt_learner = tbaclip.PromptLearner(config, class_names, model.model, device).to(torch.half)
-        if config.MODEL.LOAD_LP == 0 and config.TRAIN.LP == 1:
+        if config.MODEL.LOAD_LP == 0 and config.TRAIN.LP == 1 and config.TRAIN.ZS == 0 :
             train_lp(model, device, config, train_load_a, class_names,attention_net)
         # ------------------------------------------ Tip-Adapter ------------------------------------------
         if config.TRAIN.ZS == 1:
