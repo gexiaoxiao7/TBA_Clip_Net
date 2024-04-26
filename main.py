@@ -78,7 +78,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     with open(config.OUTPUT, 'a') as f:
         f.write(
             f'Zero-shot Clip,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc3:.3f},{acc5:.3f},{config.DATA.DATASET},'
-            f'0,{config.TEXT_PROMPT.N_CTX},0,{config.TEMPORAL_POOLING}\n')
+            f'0,{str(config.TEXT_PROMPT.N_CTX_PRE) + " " + str(config.TEXT_PROMPT.N_CTX_POST) },0,{config.TEMPORAL_POOLING}\n')
     # Tip-Adapter
     affinity = test_features @ cache_keys
     cache_logits = ((-1) * (best_beta - best_beta * affinity)).exp() @ cache_values.to(affinity.device)
@@ -89,7 +89,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     with open(config.OUTPUT, 'a') as f:
         f.write(
             f'Tip-Adapter,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc3:.3f},{acc5:.3f},{config.DATA.DATASET},'
-            f'0 ,{config.TEXT_PROMPT.N_CTX},{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}\n')
+            f'0 ,{str(config.TEXT_PROMPT.N_CTX_PRE) + " " + str(config.TEXT_PROMPT.N_CTX_POST) },{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}\n')
 
 def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels, clip_weights,
                       clip_model, train_loader_F,attention_net,prompt_learner,attention_test_feature,attention_val_feature):
@@ -208,7 +208,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
     with open(config.OUTPUT, 'a') as f:
         f.write(
             f'Tip-Adapter-F,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc3:.3f},{acc5:.3f},{config.DATA.DATASET},'
-            f'{config.DATA.SHOTS} ,{config.TEXT_PROMPT.N_CTX},{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}\n')
+            f'{config.DATA.SHOTS} ,{str(config.TEXT_PROMPT.N_CTX_PRE) + " " + str(config.TEXT_PROMPT.N_CTX_POST) },{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}\n')
 
 def train_lp(clip_model,device,config,train_loader,class_names,attention_net):
 

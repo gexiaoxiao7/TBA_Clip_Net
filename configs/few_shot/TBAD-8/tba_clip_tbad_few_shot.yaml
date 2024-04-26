@@ -1,10 +1,10 @@
 DATA:
-    ROOT: 'E:/DATASETS/TBAD-8/tbad-8/'
-#    ROOT: '/root/autodl-fs/tbad-8/'
+#    ROOT: 'E:/DATASETS/TBAD-8/tbad-8/'
+    ROOT: '/root/autodl-fs/tbad-8/'
     TRAIN_FILE: 'datasets_splits/TBAD-8/train.txt'
     TEST_FILE: 'datasets_splits/TBAD-8/test.txt'
     DATASET: TBAD-8
-    NUM_FRAMES: 16
+    NUM_FRAMES: 8
     NUM_CLASSES: 8
     LABEL_LIST: 'labels/TBAD-8_labels.csv'
     IF_TEACHER: 1
@@ -18,24 +18,27 @@ MODEL:
 TRAIN:
     LABEL_SMOOTH: 1
     IF_TEST: 0
-    ZS: 0
+    ZS: 1
     LP: 1
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
-    EPOCHS: 1
+    EPOCHS: 15
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''
-    LOAD_CACHE: 1
-    AUGMENT_EPOCH: 1
-    LOAD_PRE_FEAT: 1
+    LOAD_CACHE: 0
+    AUGMENT_EPOCH: 30
+    LOAD_PRE_FEAT: 0
     INIT_BETA: 1
     INIT_ALPHA: 3
 TEXT_PROMPT:
-    N_CTX: 3
-    CTX_INIT: "a photo of"
-#OUTPUT: '/root/autodl-fs/results.csv'
-OUTPUT: 'output_test_tip.csv'
+    N_CTX_PRE: 3
+    CTX_PRE_INIT: "The teacher was"
+    N_CTX_POST: 3
+    CTX_POST_INIT: "in the classroom"
+
+OUTPUT: '/root/autodl-fs/results.csv'
+#OUTPUT: 'output_test_tip.csv'
 SEARCH_HP: 1
 SEARCH_SCALE: [7, 3]
 SEARCH_STEP: [200, 20]

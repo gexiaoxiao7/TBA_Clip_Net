@@ -63,8 +63,10 @@ _C.TIP_ADAPTER.LOAD_PRE_FEAT = 0
 # Text Prompt Settings
 # -----------------------------------------------------------------------------
 _C.TEXT_PROMPT = CN()
-_C.TEXT_PROMPT.N_CTX = 9
-_C.TEXT_PROMPT.CTX_INIT = "The action of the person in the picture is"
+_C.TEXT_PROMPT.N_CTX_PRE = 9
+_C.TEXT_PROMPT.CTX_PRE_INIT = "The action of the person in the picture is"
+_C.TEXT_PROMPT.N_CTX_POST = 3
+_C.TEXT_PROMPT.CTX_POST_INIT = "in the classroom"
 # -----------------------------------------------------------------------------
 # Output settings
 # -----------------------------------------------------------------------------

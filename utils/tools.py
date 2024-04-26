@@ -9,10 +9,11 @@ from collections import defaultdict
 import random
 import cv2
 from PIL import Image
+from sklearn.metrics import confusion_matrix
+import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
 class AverageMeter:
     """Computes and stores the average and current value"""
 
@@ -117,11 +118,16 @@ def pre_load_features(config, split, clip_model, loader):
         attention_feature = torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_a.pt")
     return features, labels, attention_feature
 
-def cls_acc(output, label):
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import numpy as np
+
+def cls_acc(output, label, plot = True):
     acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(), AverageMeter()
-    # label = label.reshape(-1, 1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    label = torch.tensor(label).to(device)
+    label = label.clone().detach().to(device)
+    all_preds = []
+    all_labels = []
     for idx, similarity in enumerate(output):
         cur_label = label[idx]
         value1, indices_1 = similarity.topk(1, dim=-1)
@@ -138,6 +144,14 @@ def cls_acc(output, label):
         acc1_meter.update(float(acc1) * 100,1)
         acc3_meter.update(float(acc3) * 100, 1)
         acc5_meter.update(float(acc5) * 100,1)
+        all_preds.append(indices_1.cpu().numpy())
+        all_labels.append(cur_label.cpu().numpy())
+    if plot:
+        cm = confusion_matrix(np.array(all_labels), np.array(all_preds))
+        fig, ax = plt.subplots()
+        im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+        ax.figure.colorbar(im, ax=ax)
+        plt.savefig('confusion_matrix.png')
     return acc1_meter.avg, acc3_meter.avg ,acc5_meter.avg
 
 
@@ -162,7 +176,7 @@ def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, 
                 cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
                 clip_logits = 100. * features @ clip_weights.T
                 tip_logits = clip_logits + cache_logits * alpha
-                acc1, acc3 ,acc5 = cls_acc(tip_logits, labels)
+                acc1, acc3 ,acc5 = cls_acc(tip_logits, labels, False)
 
                 if acc1 > best_acc:
                     print("New best setting, beta: {:.2f}, alpha: {:.2f}; accuracy: {:.2f}".format(beta, alpha, acc1))
