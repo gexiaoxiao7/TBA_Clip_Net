@@ -9,6 +9,7 @@ import cv2
 import torch
 import clip
 from utils.tools import split_dataset
+import os
 
 class VideoDataset():
     def __init__(self,config,preprocess,device,ann_file,shot=0,type = 'train'):
@@ -31,6 +32,9 @@ class VideoDataset():
         return classes_all.values.tolist()
 
     def prepare_frames(self, path):
+        if not os.path.exists(path):
+            print(f"File {path} not found.")
+            return None
         video_capture = cv2.VideoCapture(path)
         total_frames = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
         frames = []
@@ -73,12 +77,13 @@ class VideoDataset():
                     label = int(label)
                     if label in class_counts and class_counts[label] >= self.shot:
                         continue
-                    if label not in class_counts:
-                        class_counts[label] = 1
-                    else:
-                        class_counts[label] += 1
                     data = self.prepare_frames(self.data_prefix + filename)
-                    video_infos.append(dict(filename=filename, label=label, data=data))
+                    if data is not None:
+                        video_infos.append(dict(filename=filename, label=label, data=data))
+                        if label not in class_counts:
+                            class_counts[label] = 1
+                        else:
+                            class_counts[label] += 1
         elif self.type == 'train_a':
             with open(self.ann_file, 'r') as fin:
                 lines = fin.readlines()
@@ -93,12 +98,13 @@ class VideoDataset():
                     label = int(label)
                     if label in class_counts and class_counts[label] >= self.shot:
                         continue
-                    if label not in class_counts:
-                        class_counts[label] = 1
-                    else:
-                        class_counts[label] += 1
                     data = self.prepare_frames(self.data_prefix + filename)
-                    video_infos.append(dict(filename=filename, label=label, data=data))
+                    if data is not None:
+                        video_infos.append(dict(filename=filename, label=label, data=data))
+                        if label not in class_counts:
+                            class_counts[label] = 1
+                        else:
+                            class_counts[label] += 1
         else:
             with open(self.ann_file, 'r') as fin:
                 for idx, line in enumerate(fin):
@@ -111,15 +117,21 @@ class VideoDataset():
                     if self.type == 'train_F':
                         if label in class_counts and class_counts[label] >= self.shot:
                             continue
-                        if label not in class_counts:
-                            class_counts[label] = 1
-                        else:
-                            class_counts[label] += 1
                         data = self.prepare_frames(self.data_prefix + filename)
-                        video_infos.append(dict(filename=filename, label=label, data=data))
+                        if data is not None:
+                            video_infos.append(dict(filename=filename, label=label, data=data))
+                            if label not in class_counts:
+                                class_counts[label] = 1
+                            else:
+                                class_counts[label] += 1
                     else:
                         data = self.prepare_frames(self.data_prefix + filename)
-                        video_infos.append(dict(filename=filename, label=label, data=data))
+                        if data is not None:
+                            video_infos.append(dict(filename=filename, label=label, data=data))
+                            if label not in class_counts:
+                                class_counts[label] = 1
+                            else:
+                                class_counts[label] += 1
         return video_infos
 
     def __len__(self):
