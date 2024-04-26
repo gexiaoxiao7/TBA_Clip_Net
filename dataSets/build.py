@@ -68,7 +68,7 @@ class VideoDataset():
                 lines = fin.readlines()
                 # start_idx = int(total_lines * 2 / 3)  # Calculate the start index
                 for idx in range(total_lines):  # Start from the last third
-                    if idx % 50 == 0 and idx != 0:
+                    if idx % 1 == 0 and idx != 0:
                         progress = (idx / total_lines) * 100
                         print(f'Processed {idx} samples, progress: {progress:.2f}%')
                     line = lines[total_lines - idx - 1]
@@ -89,7 +89,7 @@ class VideoDataset():
                 lines = fin.readlines()
                 # start_idx = int(total_lines * 1 / 3)  # Calculate the start index
                 for idx in range(total_lines):  # Start from the last third
-                    if idx % 50 == 0 and idx != 0:
+                    if idx % 1 == 0 and idx != 0:
                         progress = (idx / total_lines) * 100
                         print(f'Processed {idx} samples, progress: {progress:.2f}%')
                     line = lines[total_lines - idx - 1]
@@ -108,7 +108,7 @@ class VideoDataset():
         else:
             with open(self.ann_file, 'r') as fin:
                 for idx, line in enumerate(fin):
-                    if idx % 50 == 0 and idx != 0:
+                    if idx % 1 == 0 and idx != 0:
                         progress = (idx / total_lines) * 100
                         print(f'Processed {idx} samples, progress: {progress:.2f}%')
                     line_split = line.strip().split()
