@@ -40,14 +40,9 @@ def parse_option():
 
 
 
-def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels, clip_weights,
-                    attention_net,attention_test_feature,attention_val_feature):
-    if config.TEMPORAL_POOLING == 'attention':
-        attention_net.load_state_dict(
-            torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "attention_model.pth"))
-    test_features = test_features if config.TEMPORAL_POOLING != 'attention' else attention_Fuc(attention_net,
-                                                                                               attention_test_feature)
-    val_features = val_features if config.TEMPORAL_POOLING != 'attention' else attention_Fuc(attention_net,attention_val_feature)
+def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels, clip_weights):
+    test_features = test_features
+    val_features = val_features
     print("\n-------- Searching hyperparameters on the val set. --------")
     # Zero-shot CLIP
     clip_logits = (100. * val_features @ clip_weights.T).softmax(dim=-1)
@@ -464,8 +459,7 @@ def main(config):
             train_lp(model, device, config, train_load_a, class_names,attention_net)
         # ------------------------------------------ Tip-Adapter ------------------------------------------
         if config.TRAIN.ZS == 1:
-            run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
-                            clip_weights,attention_net,attention_test_feature,attention_val_feature)
+            run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,clip_weights)
         else:
         # ------------------------------------------ Tip-Adapter-F ------------------------------------------
             run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,

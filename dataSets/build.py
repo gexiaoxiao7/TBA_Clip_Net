@@ -160,10 +160,14 @@ class SubsetRandomSampler(torch.utils.data.Sampler):
 def build_dataloader(config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     _, preprocess = clip.load(config.MODEL.ARCH, device=device)
-    test_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TEST_FILE,type='test')
-    indices = list(range(len(test_data)))
-    sampler = SubsetRandomSampler(indices)
-    test_loader = DataLoader(test_data, batch_size=1,sampler=sampler)
+    if config.TIP_ADAPTER.LOAD_PRE_FEAT == 0:
+        test_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TEST_FILE,type='test')
+        indices = list(range(len(test_data)))
+        sampler = SubsetRandomSampler(indices)
+        test_loader = DataLoader(test_data, batch_size=1,sampler=sampler)
+    else:
+        test_data = None
+        test_loader = None
     print("test_data_finished!")
     if config.TRAIN.IF_TEST == 0:
         train_chache_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,shot=config.DATA.CACHE_SIZE,type='train_cache')
