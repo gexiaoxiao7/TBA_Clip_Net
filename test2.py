@@ -25,7 +25,7 @@ with open('datasets_splits/TBAD-8/test_reordered.txt', 'r') as f:
     lines = f.readlines()
 
 # Step 2 and 3: Split the data and write to new files
-for i in range(0, len(lines), 60):
-    part = lines[i:i+60]
-    with open(f'datasets_splits/TBAD-8/test_reordered_part{i//60+1}.txt', 'w') as f:
+for i in range(0, len(lines), 40):
+    part = lines[i:i+40]
+    with open(f'datasets_splits/TBAD-8/test_reordered_part{i//40+1}.txt', 'w') as f:
         f.writelines(part)
