@@ -2,7 +2,10 @@ import numpy as np
 import torch.nn as nn
 from ultralytics import YOLO
 
+import json
+import cv2
 
+# Load the track id from the file
 class TeacherDetection(nn.Module):
     def __init__(self, yolo_model):
         super(TeacherDetection, self).__init__()
@@ -11,6 +14,7 @@ class TeacherDetection(nn.Module):
     def forward(self, image):
         results = self.model(image)
         boxes = np.array(results[0].to('cpu').boxes.data)
+        # track_ids = results[0].boxes.id.int().cpu().tolist()
 
         # Filter out boxes that are not 'person'
         person_boxes = [box for box in boxes if box[5] == 0]
@@ -18,8 +22,8 @@ class TeacherDetection(nn.Module):
         if not person_boxes:
             return image
 
-        # Find the largest 'person' box
-        largest_box = max(person_boxes, key=lambda box: abs((box[3] - box[1]) * (box[2] - box[0])))
+        # Find the 'person' box with the smallest y-coordinate
+        largest_box = min(person_boxes, key=lambda box: box[1])
 
         # Check if the top boundary of the largest box is in the upper half of the image
         if largest_box[1] > image.shape[0] / 2:
@@ -29,7 +33,8 @@ class TeacherDetection(nn.Module):
         intersecting_boxes = [box for box in boxes if self._intersect(box, largest_box)]
 
         # Combine all boxes into a large box
-        large_box = self._combine_boxes([largest_box] + intersecting_boxes)
+        # large_box = self._combine_boxes([largest_box] + intersecting_boxes)
+        large_box = self._combine_boxes([largest_box])
 
         # Crop the image according to the large box
         cropped_image = image[int(large_box[1]):int(large_box[3]), int(large_box[0]):int(large_box[2])]
