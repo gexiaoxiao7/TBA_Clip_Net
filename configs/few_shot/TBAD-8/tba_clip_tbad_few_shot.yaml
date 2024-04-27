@@ -18,7 +18,7 @@ MODEL:
 TRAIN:
     LABEL_SMOOTH: 1
     IF_TEST: 0
-    ZS: 1
+    ZS: 0
     LP: 1
     BATCH_SIZE: 1 # BS 64
     ACCUMULATION_STEPS: 2
