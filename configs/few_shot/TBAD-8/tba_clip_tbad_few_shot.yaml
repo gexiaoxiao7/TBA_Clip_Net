@@ -13,8 +13,8 @@ DATA:
 MODEL:
     ARCH: ViT-L/14@336px
     YOLO: 'Yolo-model/yolov8n.pt'
-    LOAD_ATTENTION: 0
-    LOAD_LP: 0
+    LOAD_ATTENTION: 1
+    LOAD_LP: 1
 TRAIN:
     LABEL_SMOOTH: 1
     IF_TEST: 0
@@ -26,9 +26,9 @@ TRAIN:
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''
-    LOAD_CACHE: 0
+    LOAD_CACHE: 1
     AUGMENT_EPOCH: 30
-    LOAD_PRE_FEAT: 0
+    LOAD_PRE_FEAT: 1
     INIT_BETA: 1
     INIT_ALPHA: 3
 TEXT_PROMPT:
