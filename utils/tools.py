@@ -9,6 +9,7 @@ from collections import defaultdict
 import random
 import cv2
 from PIL import Image
+import pandas as pd
 from sklearn.metrics import confusion_matrix
 import numpy as np
 import matplotlib
@@ -45,6 +46,10 @@ def clip_classifier(classnames,clip_model,config,device):
         clip_weights = clip_weights.squeeze(dim=1)
         clip_weights /= clip_weights.norm(dim=-1, keepdim=True)
     return clip_weights
+
+def classes(config):
+    classes_all = pd.read_csv(config.DATA.LABEL_LIST)
+    return classes_all.values.tolist()
 
 def build_cache_model(config, clip_model, train_loader_cache):
     if config.TIP_ADAPTER.LOAD_CACHE == 0:

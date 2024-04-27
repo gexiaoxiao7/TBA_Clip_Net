@@ -7,12 +7,13 @@ import torch.nn.functional as F
 import time
 from tqdm import tqdm
 
+
 from model.tp import Attention
 from model.transformer import FSATransformerEncoder
 from utils.config import get_config
 from dataSets.build import build_dataloader
 from utils.tools import AverageMeter, clip_classifier, build_cache_model, pre_load_features, split_dataset, \
-    attention_Fuc, promptlearner_Fuc
+    attention_Fuc, promptlearner_Fuc, classes
 from utils.tools import cls_acc, search_hp
 import torch.nn as nn
 from timm.loss import LabelSmoothingCrossEntropy
@@ -428,7 +429,7 @@ def main(config):
                 f.write('Model,Arch,If_teacher,Num_Frames,Acc1,Acc3,Acc5,Dataset,Shots,n_ctx,cache_size,TEMPORAL_POOLING\n')
         (train_cache_data, val_data, test_data,train_data_F, train_data_a,
          train_load_cache, val_loader, test_loader, train_load_F, train_load_a)= build_dataloader(config)
-        class_names = [class_name for i, class_name in test_data.classes]
+        class_names = [class_name for i, class_name in classes(config)]
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model = tbaclip.returnCLIP(config, class_names, device)
         # USE adapter-clip
