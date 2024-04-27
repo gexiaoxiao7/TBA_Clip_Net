@@ -124,6 +124,12 @@ def update_config(config, args):
         config.TRAIN.LP = args.lp
     if args.load_lp is not None:
         config.MODEL.LOAD_LP = args.load_lp
+    if args.only_label is not None:
+        config.TEXT_PROMPT.ONLY_LABEL = args.only_label
+    if args.load_lp is not None:
+        config.MODEL.LOAD_LP = args.load_lp
+    if args.label_smooth is not None:
+        config.TRAIN.LABEL_SMOOTH = args.label_smooth
     # set local rank for distributed training
     # config.LOCAL_RANK = args.local_rank
     config.freeze()

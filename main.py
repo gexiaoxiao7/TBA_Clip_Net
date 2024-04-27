@@ -35,6 +35,9 @@ def parse_option():
     parser.add_argument('--zs', type=int)
     parser.add_argument('--cache_size', type=int)
     parser.add_argument('--lp', type=int)
+    parser.add_argument('--only_label', type=int)
+    parser.add_argument('--load_lp', type=int)
+    parser.add_argument('--label_smooth', type=int)
     args = parser.parse_args()
     config = get_config(args)
     return args, config
