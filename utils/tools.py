@@ -34,7 +34,10 @@ class AverageMeter:
 
 def clip_classifier(classnames,clip_model,config,device):
     with torch.no_grad():
-        prompts = classnames
+        if config.TEXT_PROMPT.ONLY_LABEL == 0:
+            prompts = ['The person was ' + x + '.' for x in classnames]
+        else:
+            prompts = classnames
         x = [clip.tokenize(prompt).to(device) for prompt in prompts]
         clip_weights = [clip_model.model.encode_text(i) for i in x]
         # x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)

@@ -36,6 +36,7 @@ TEXT_PROMPT:
     CTX_PRE_INIT: "The teacher was"
     N_CTX_POST: 3
     CTX_POST_INIT: "in the classroom"
+    ONLY_LABEL: 0
 
 OUTPUT: '/root/autodl-fs/results.csv'
 #OUTPUT: 'output_test_tip.csv'
