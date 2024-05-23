@@ -18,9 +18,9 @@ python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --test
 
 python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --test_file datasets_splits/TBAD-8/test_reordered_part1.txt --zs 1 --if_teacher 0
 
-python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --test_file datasets_splits/TBAD-8/test_reordered_part1.txt --arch ViT-L/14
-python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --test_file datasets_splits/TBAD-8/test_reordered_part1.txt --arch ViT-B/16
-python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --test_file datasets_splits/TBAD-8/test_reordered_part1.txt --arch ViT-B/32
+python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --test_file datasets_splits/TBAD-8/test_reordered_part1.txt --arch ViT-L/14 --load_attention 0 --load_lp 0 --load_cache 0
+python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --test_file datasets_splits/TBAD-8/test_reordered_part1.txt --arch ViT-B/16 --load_attention 0 --load_lp 0 --load_cache 0
+python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --test_file datasets_splits/TBAD-8/test_reordered_part1.txt --arch ViT-B/32 --load_attention 0 --load_lp 0 --load_cache 0
 
 
 python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml --test_file datasets_splits/TBAD-8/test_reordered_part1.txt --load_attention 0 --load_lp 0 --shots 1

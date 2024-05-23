@@ -13,7 +13,12 @@ import pandas as pd
 from sklearn.metrics import confusion_matrix
 import numpy as np
 import matplotlib
+import clip
+
+from model.TClip import load_clip
+
 matplotlib.use('Agg')
+from model.tld import TeacherDetection
 import matplotlib.pyplot as plt
 class AverageMeter:
     """Computes and stores the average and current value"""
@@ -130,7 +135,7 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
 
-def cls_acc(output, label, plot = True):
+def cls_acc(output, label, plot = False, config = None):
     acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(), AverageMeter()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     label = label.clone().detach().to(device)
@@ -155,12 +160,32 @@ def cls_acc(output, label, plot = True):
         all_preds.append(indices_1.cpu().numpy())
         all_labels.append(cur_label.cpu().numpy())
     if plot:
+        cls = classes(config)
+        labels = [sublist[1] for sublist in cls]
+
         cm = confusion_matrix(np.array(all_labels), np.array(all_preds))
-        fig, ax = plt.subplots()
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]  # Convert to percentages
+
+        fig, ax = plt.subplots(figsize=(10, 10))  # Increase figure size
         im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-        ax.figure.colorbar(im, ax=ax)
+        ax.figure.colorbar(im, ax=ax, shrink=0.7)  # Adjust the length of colorbar
+
+        # Show all ticks
+        ax.set_xticks(np.arange(len(labels)))
+        ax.set_yticks(np.arange(len(labels)))
+        # ax.set_xticklabels(labels, rotation=45, fontsize='medium')  # Increase font size
+        # ax.set_yticklabels(labels, fontsize='medium')  # Increase font size
+
+        # Loop over data dimensions and create text annotations
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, format(cm[i, j], '.2f'),  # Show 2 decimal places
+                        ha='center', va='center', color='black')
+
+        fig.tight_layout()  # Increase margin
         plt.savefig('confusion_matrix.png')
-    return acc1_meter.avg, acc3_meter.avg ,acc5_meter.avg
+
+    return acc1_meter.avg, acc3_meter.avg, acc5_meter.avg
 
 
 def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, adapter=None):
@@ -278,3 +303,55 @@ def visulize_attention_ratio(img_path, attention_mask, ratio=0.5, cmap="jet"):
     normed_mask = mask / mask.max()
     normed_mask = (normed_mask * 255).astype('uint8')
     plt.imshow(normed_mask, alpha=0.5, interpolation='nearest', cmap=cmap)
+
+
+def prepare_frames(path,num_frames,device):
+    if not os.path.exists(path):
+        print(f"File {path} not found.")
+        return None
+    video_capture = cv2.VideoCapture(path)
+    model , preprocess = load_clip('ViT-L/14@336px',device)
+    detector = TeacherDetection('Yolo-model/yolov8n.pt')
+    total_frames = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    frames = []
+    frame_ids = np.linspace(0, total_frames - 2, num_frames)
+    frame_ids = np.floor(frame_ids).astype(int)
+    for i in range(total_frames+1) :
+        ret, frame = video_capture.read()
+        if not ret:
+            break
+        if i in frame_ids:
+            # Resize the frame
+            frame = cv2.resize(frame, (224*8, 224*8))
+            frames.append(frame)
+    while len(frames) < num_frames:
+        frames.extend(frames[:num_frames - len(frames)])
+    video_capture.release()
+    for i in range(len(frames)):
+        frames[i] = detector(frames[i])
+    return frames
+def visual(config, path ,logits):
+    # Step 1: Prepare frames from the video
+    logits = logits.flatten()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    frames = prepare_frames(path, config.DATA.NUM_FRAMES,device)
+    top1_classes = logits.argsort()[-1].item()  # Use .item() to get the value
+    top1_probs = logits[top1_classes]
+    # Step 2: Add text to each frame and save
+    for i, frame in enumerate(frames):
+        # Get top 1 class and its probability
+        cls = classes(config)
+        class_name = cls[top1_classes][1]
+        prob = top1_probs
+        # Add text to the frame
+        text_prob = f'{prob:.2f}:'
+        text_class = f'{class_name}'
+        cv2.putText(frame, text_prob, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+        cv2.putText(frame, text_class, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+        # Save the frame
+        # 取path的最后一级路径名
+        video_name = path.split('/')[-1].split('.')[0]
+        cv2.imwrite(f'output/{video_name}_frame_{i}.jpg', frame)
+    for i, frame in enumerate(frames):
+        video_name = path.split('/')[-1].split('.')[0]
+        cv2.imwrite(f'output/{video_name}_frame_orign_{i}.jpg', frame)

@@ -1,3 +1,1 @@
-# Results
-
-![结果图](results.jpg)
+The Docker will be released soon.

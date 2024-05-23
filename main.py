@@ -1,3 +1,5 @@
+import numpy as np
+
 import model.TClip as tbaclip
 import clip
 import torch
@@ -13,7 +15,7 @@ from model.transformer import FSATransformerEncoder
 from utils.config import get_config
 from dataSets.build import build_dataloader
 from utils.tools import AverageMeter, clip_classifier, build_cache_model, pre_load_features, split_dataset, \
-    attention_Fuc, promptlearner_Fuc, classes
+    attention_Fuc, promptlearner_Fuc, classes, visual
 from utils.tools import cls_acc, search_hp
 import torch.nn as nn
 from timm.loss import LabelSmoothingCrossEntropy
@@ -201,7 +203,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
     cache_logits = ((-1) * (best_beta - best_beta * affinity)).exp() @ cache_values.to(affinity.device)
 
     tip_logits = clip_logits + cache_logits * best_alpha
-    acc1,acc3,acc5 = cls_acc(tip_logits, test_labels)
+    acc1,acc3,acc5 = cls_acc(tip_logits, test_labels, plot= True,config= config)
     print("**** Tip-Adapter-F's test accuracy1: {:.2f}. , accuracy3: {:.2f},accuracy5: {:.2f}.****\n".format(max(best_acc, acc1),acc3,acc5))
     with open(config.OUTPUT, 'a') as f:
         f.write(
@@ -362,9 +364,12 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
 def validate(val_loader,model,config):
     b = val_loader.batch_size
     acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(),AverageMeter()
+    test_labels = []
+    logits = []
     with torch.no_grad():
         for idx, batch_data in enumerate(val_loader):
             images = batch_data['data']
+            file_name = batch_data['filename']
             label_id = batch_data['label']
             image_input = []
             for image in images:
@@ -372,6 +377,10 @@ def validate(val_loader,model,config):
                 image_input.append(image)
             image_input = [item for sublist in image_input for item in sublist]
             tot_similarity, _, _,_ = model(image_input)
+            logits.append(tot_similarity)
+            test_labels.append(label_id)
+            path = config.DATA.ROOT + file_name[0]
+            visual(config, path, tot_similarity)
             values_1, indices_1 = tot_similarity.topk(1, dim=-1)
             values_3, indices_3 = tot_similarity.topk(3, dim=-1)
             values_5, indices_5 = tot_similarity.topk(5, dim=-1)
@@ -389,6 +398,8 @@ def validate(val_loader,model,config):
             # if idx % 200 == 0:
             print( f'Test: [{idx}/{len(val_loader)}]\t'
                     f'Acc@1: {acc1_meter.avg:.3f}\t')
+        logits = torch.cat(logits).squeeze(1)
+        _,_,_ = cls_acc(logits, torch.cat(test_labels),plot=True,config=config)
         print(f'Acc@1: {acc1_meter.avg:.3f}\t'
               f'Acc@3: {acc3_meter.avg:.3f}\t'
               f'Acc@5: {acc5_meter.avg:.3f}\t')
@@ -415,7 +426,7 @@ def main(config):
     if config.TRAIN.IF_TEST == 1:
         (_, _, test_data, _, _,
         _, _, test_loader, _, _) = build_dataloader(config)
-        class_names = [class_name for i, class_name in test_data.classes]
+        class_names = [class_name for i, class_name in classes(config)]
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model = tbaclip.returnCLIP(config,class_names,device)
         acc1 = validate(test_loader, model, config)
@@ -429,9 +440,13 @@ def main(config):
             with open(config.OUTPUT, 'a') as f:
                 # Write the column names
                 f.write('Model,Arch,If_teacher,Num_Frames,Acc1,Acc3,Acc5,Dataset,Shots,n_ctx,cache_size,TEMPORAL_POOLING\n')
+        pre_time = int(time.time())
         (train_cache_data, val_data, test_data,train_data_F, train_data_a,
          train_load_cache, val_loader, test_loader, train_load_F, train_load_a)= build_dataloader(config)
+        print(f"process Time cost: {int(time.time()) - pre_time} seconds.")
         class_names = [class_name for i, class_name in classes(config)]
+
+        pre_time_seconds = int(time.time())
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model = tbaclip.returnCLIP(config, class_names, device)
         # USE adapter-clip
@@ -468,6 +483,13 @@ def main(config):
             run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,
                               clip_weights, model, train_load_F,attention_net,prompt_learner,attention_test_feature,attention_val_feature)
 
+        print(f"Training Time cost: {int(time.time()) - pre_time_seconds} seconds.")
+
 if __name__ == '__main__':
     args, config = parse_option()
+    # path = 'E:/DATASETS/TBAD-8/tbad-8/cleaning_the_blackboard_20.mp4'
+    # logits = np.array([0.2,0.89,0.4,0.5,0.1,0.5,0.4,0.3])
+    # visual(config, path, logits)
+    # 统计运行main函数需要多少秒
+
     main(config)
