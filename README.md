@@ -1,1 +1,1 @@
-The Docker will be released soon.
+Docs will be released soon.
