@@ -1,0 +1,3 @@
+Model,Arch,If_teacher,Num_Frames,Acc1,Acc3,Acc5,AUC,F1,Dataset,Shots,n_ctx,cache_size,TEMPORAL_POOLING
+Tip-Adapter-F,ViT-L/14@336px,0,8,56.667,80.000,91.667,0.859,0.552,TBAD-8,8 ,3 3,8,attention
+Tip-Adapter-F,ViT-L/14@336px,0,8,60.000,78.333,91.667,0.861,0.568,TBAD-8,8 ,3 3,8,attention

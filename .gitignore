@@ -4,3 +4,6 @@
 /base_model
 /dataSets/extrat.py
 **/__pycache__
+*.sh
+/test
+/caches

@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 from collections import defaultdict
 import random
+from sklearn.metrics import roc_auc_score, f1_score
 import cv2
 from PIL import Image
 import pandas as pd
@@ -141,6 +142,7 @@ def cls_acc(output, label, plot = False, config = None):
     label = label.clone().detach().to(device)
     all_preds = []
     all_labels = []
+    all_probs = []
     for idx, similarity in enumerate(output):
         cur_label = label[idx]
         value1, indices_1 = similarity.topk(1, dim=-1)
@@ -159,6 +161,27 @@ def cls_acc(output, label, plot = False, config = None):
         acc5_meter.update(float(acc5) * 100,1)
         all_preds.append(indices_1.cpu().numpy())
         all_labels.append(cur_label.cpu().numpy())
+        probs = similarity.softmax(dim=-1).cpu().detach().numpy()
+        if len(probs.shape) > 1:  # 如果probs有多个维度
+            probs /= probs.sum(axis=1, keepdims=True)  # 归一化概率，使其和为1
+        else:  # 如果probs只有一个维度
+            probs /= probs.sum()  # 归一化概率，使其和为1
+        if not np.isclose(probs.sum(), 1):
+            probs = np.clip(probs, 0, 1)
+            min_index = np.argmin(probs)
+            sum = 0
+            for i,num in enumerate(probs):
+                if i != min_index:
+                    sum += num
+            probs[min_index] = 1 - sum
+        all_probs.append(probs)
+    # AUC and F1
+    all_labels = np.array(all_labels)
+    all_preds = np.array(all_preds)
+    all_probs = np.array(all_probs)
+
+    auc = roc_auc_score(all_labels, all_probs, multi_class='ovr')
+    f1 = f1_score(all_labels, all_preds, average='macro')
     if plot:
         cls = classes(config)
         labels = [sublist[1] for sublist in cls]
@@ -185,7 +208,7 @@ def cls_acc(output, label, plot = False, config = None):
         fig.tight_layout()  # Increase margin
         plt.savefig('confusion_matrix.png')
 
-    return acc1_meter.avg, acc3_meter.avg, acc5_meter.avg
+    return acc1_meter.avg, acc3_meter.avg, acc5_meter.avg, auc, f1
 
 
 def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, adapter=None):
@@ -209,7 +232,7 @@ def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, 
                 cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
                 clip_logits = 100. * features @ clip_weights.T
                 tip_logits = clip_logits + cache_logits * alpha
-                acc1, acc3 ,acc5 = cls_acc(tip_logits, labels, False)
+                acc1, acc3 ,acc5, auc, f1 = cls_acc(tip_logits, labels, False)
 
                 if acc1 > best_acc:
                     print("New best setting, beta: {:.2f}, alpha: {:.2f}; accuracy: {:.2f}".format(beta, alpha, acc1))
