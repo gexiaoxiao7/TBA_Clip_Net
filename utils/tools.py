@@ -179,7 +179,10 @@ def cls_acc(output, label, plot = False, config = None):
     all_labels = np.array(all_labels)
     all_preds = np.array(all_preds)
     all_probs = np.array(all_probs)
-
+    # print("labels shape:",end="")
+    # print(all_labels)
+    # print("probs shape:",end="")
+    # print(all_probs)
     auc = roc_auc_score(all_labels, all_probs, multi_class='ovr')
     f1 = f1_score(all_labels, all_preds, average='macro')
     if plot:
