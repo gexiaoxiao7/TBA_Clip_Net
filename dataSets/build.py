@@ -60,7 +60,6 @@ class VideoDataset():
 
     def load_annotations(self):
         video_infos = []
-        #初始化一个列表，长度为num_classes，值为0
         class_counts = {}
         total_lines = sum(1 for line in open(self.ann_file, 'r'))
         if self.type == 'train_cache':

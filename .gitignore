@@ -7,3 +7,6 @@
 *.sh
 /test
 /caches
+*.csv
+*.png
+*.jpg
