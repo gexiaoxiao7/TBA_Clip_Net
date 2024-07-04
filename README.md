@@ -1,3 +1,3 @@
-Docs will be released soon.
+**Full Docs will be released in camera-ready version.**
+## Requirements
 
-[TBAD DATASET](https://pan.baidu.com/s/1Fc26qXUyBujiY3LQlt7xog?pwd=ascu) pwd:ascu
