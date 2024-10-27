@@ -2,6 +2,7 @@
 /ultralytics/wandb
 /ultralytics/assets
 /base_model
+/datasets_splits/format_change.py
 /dataSets/extrat.py
 **/__pycache__
 *.sh

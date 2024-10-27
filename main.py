@@ -8,15 +8,16 @@ import argparse
 import torch.nn.functional as F
 import time
 from tqdm import tqdm
-
-
+from sklearn.metrics import roc_auc_score, f1_score
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
 from model.tp import Attention
 from model.transformer import FSATransformerEncoder
 from utils.config import get_config
 from dataSets.build import build_dataloader
 from utils.tools import AverageMeter, clip_classifier, build_cache_model, pre_load_features, split_dataset, \
     attention_Fuc, promptlearner_Fuc, classes, visual
-from utils.tools import cls_acc, search_hp
+from utils.tools import search_hp
 import torch.nn as nn
 from timm.loss import LabelSmoothingCrossEntropy
 def parse_option():
@@ -51,7 +52,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     print("\n-------- Searching hyperparameters on the val set. --------")
     # Zero-shot CLIP
     clip_logits = (100. * val_features @ clip_weights.T).softmax(dim=-1)
-    acc1, acc3, acc5, auc, f1 = cls_acc(clip_logits, val_labels)
+    acc1, acc3, acc5, auc, f1 = validate(clip_logits, val_labels)
     print("\n**** Zero-shot CLIP's val accuracy1: {:.2f}. accuracy3: {:.2f} accuracy5: {:.2f} ****\n".format(acc1,acc3,acc5))
 
     # Tip-Adapter
@@ -61,7 +62,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
 
     tip_logits = clip_logits + cache_logits * alpha
-    acc1,acc3,acc5, auc, f1 = cls_acc(tip_logits, val_labels)
+    acc1,acc3,acc5, auc, f1 = validate(tip_logits, val_labels)
 
     print("**** Tip-Adapter's val accuracy1: {:.2f}. accuracy3: {:.2f} accuracy5: {:.2f}, auc: {:.2f}, f1: {:.2f}****\n".format(acc1,acc3,acc5,auc,f1))
 
@@ -73,7 +74,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
 
     # Zero-shot CLIP
     clip_logits = (100. * test_features @ clip_weights.T).softmax(dim=-1)
-    acc1, acc3 ,acc5, auc, f1 = cls_acc(clip_logits, test_labels)
+    acc1, acc3 ,acc5, auc, f1 = validate(clip_logits, test_labels)
     print("\n**** Zero-shot CLIP's test accuracy1: {:.2f}. accuracy3:{:.2f} accuracy5:{:.2f} auc:{:.2f} f1:{:.2f}****\n".format(acc1,acc3,acc5,auc,f1))
     with open(config.OUTPUT, 'a') as f:
         f.write(
@@ -84,7 +85,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     cache_logits = ((-1) * (best_beta - best_beta * affinity)).exp() @ cache_values.to(affinity.device)
 
     tip_logits = clip_logits + cache_logits * best_alpha
-    acc1, acc3 ,acc5, auc, f1 = cls_acc(tip_logits, test_labels)
+    acc1, acc3 ,acc5, auc, f1 = validate(tip_logits, test_labels)
     print("**** Tip-Adapter's test accuracy1: {:.2f}. accuracy3: {:.2f} accuracy5: {:.2f} auc: {:.2f} f1:{:.2f}****\n".format(acc1,acc3,acc5,auc,f1))
     with open(config.OUTPUT, 'a') as f:
         f.write(
@@ -181,7 +182,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
         clip_logits = 100. * test_features @ clip_weights.T if config.TRAIN.LP == 0 else promptlearner_Fuc(
             prompt_learner, test_features, clip_model)
         tip_logits =  clip_logits + cache_logits * alpha
-        acc1, acc3 ,acc5, auc, f1 = cls_acc(tip_logits, test_labels)
+        acc1, acc3 ,acc5, auc, f1 = validate(tip_logits, test_labels)
         print("**** Tip-Adapter-F's test accuracy: {:.2f}. auc:{:.2f}****\n".format(acc1,auc))
         if acc1 >= best_acc:
             best_acc = acc1
@@ -203,7 +204,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
     cache_logits = ((-1) * (best_beta - best_beta * affinity)).exp() @ cache_values.to(affinity.device)
 
     tip_logits = clip_logits + cache_logits * best_alpha
-    acc1,acc3,acc5, auc, f1 = cls_acc(tip_logits, test_labels, plot= True,config= config)
+    acc1,acc3,acc5, auc, f1 = validate(tip_logits, test_labels, plot= True,config= config)
     print("**** Tip-Adapter-F's test accuracy1: {:.2f}. , accuracy3: {:.2f},accuracy5: {:.2f}. auc: {:.2f}, f1: {:.2f}****\n".format(max(best_acc, acc1),acc3,acc5, auc, f1))
     with open(config.OUTPUT, 'a') as f:
         f.write(
@@ -361,59 +362,84 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
         torch.save(attention_net.state_dict(), config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) +"attention_model.pth")
 
 @torch.no_grad()
-def validate(val_loader,model,config):
-    b = val_loader.batch_size
-    acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(),AverageMeter()
-    test_labels = []
-    logits = []
-    with torch.no_grad():
-        for idx, batch_data in enumerate(val_loader):
-            images = batch_data['data']
-            file_name = batch_data['filename']
-            label_id = batch_data['label']
-            image_input = []
-            for image in images:
-                image = image.cpu().numpy()
-                image_input.append(image)
-            image_input = [item for sublist in image_input for item in sublist]
-            tot_similarity, _, _,_ = model(image_input)
-            logits.append(tot_similarity)
-            test_labels.append(label_id)
-            path = config.DATA.ROOT + file_name[0]
-            visual(config, path, tot_similarity)
-            values_1, indices_1 = tot_similarity.topk(1, dim=-1)
-            values_3, indices_3 = tot_similarity.topk(3, dim=-1)
-            values_5, indices_5 = tot_similarity.topk(5, dim=-1)
-            acc1, acc3 ,acc5 = 0, 0, 0
-            for i in range(b):
-                if indices_1[i] == label_id[i]:
-                    acc1 += 1
-                if label_id[i] in indices_3[i]:
-                    acc3 += 1
-                if label_id[i] in indices_5[i]:
-                    acc5 += 1
-            acc1_meter.update(float(acc1) / b * 100, b)
-            acc3_meter.update(float(acc3) / b * 100, b)
-            acc5_meter.update(float(acc5) / b * 100, b)
-            # if idx % 200 == 0:
-            print( f'Test: [{idx}/{len(val_loader)}]\t'
-                    f'Acc@1: {acc1_meter.avg:.3f}\t')
-        logits = torch.cat(logits).squeeze(1)
-        _,_,_,_,_ = cls_acc(logits, torch.cat(test_labels),plot=True,config=config)
-        print(f'Acc@1: {acc1_meter.avg:.3f}\t'
-              f'Acc@3: {acc3_meter.avg:.3f}\t'
-              f'Acc@5: {acc5_meter.avg:.3f}\t')
-        if not os.path.exists(config.OUTPUT):
-            with open(config.OUTPUT, 'w') as f:
-                pass
-        # Check if the file is empty
-        if os.stat(config.OUTPUT).st_size == 0:
-            with open(config.OUTPUT, 'a') as f:
-                # Write the column names
-                f.write('Model,If_teacher,Num_Frames,Acc1,Acc5,Dataset\n')
-        with open(config.OUTPUT, 'a') as f:
-            f.write(f'{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1_meter.avg:.3f},{acc3_meter.avg:.3f},{acc5_meter.avg:.3f},{config.DATA.DATASET}\n')
-        return acc1_meter.avg
+def validate(output, label, plot = False, config = None):
+    acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(), AverageMeter()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    label = label.clone().detach().to(device)
+    all_preds = []
+    all_labels = []
+    all_probs = []
+    for idx, similarity in enumerate(output):
+        cur_label = label[idx]
+        value1, indices_1 = similarity.topk(1, dim=-1)
+        value3, indices_3 = similarity.topk(3, dim=-1)
+        value5, indices_5 = similarity.topk(5, dim=-1)
+        acc1, acc3 ,acc5 = 0, 0,0
+        for i in range(1): # batch_size
+            if indices_1[i] == cur_label:
+                acc1 += 1
+            if cur_label in indices_3:
+                acc3 += 1
+            if cur_label in indices_5:
+                acc5 += 1
+        acc1_meter.update(float(acc1) * 100,1)
+        acc3_meter.update(float(acc3) * 100, 1)
+        acc5_meter.update(float(acc5) * 100,1)
+        all_preds.append(indices_1.cpu().numpy())
+        all_labels.append(cur_label.cpu().numpy())
+        probs = similarity.softmax(dim=-1).cpu().detach().numpy()
+        if len(probs.shape) > 1:  # 如果probs有多个维度
+            probs /= probs.sum(axis=1, keepdims=True)  # 归一化概率，使其和为1
+        else:  # 如果probs只有一个维度
+            probs /= probs.sum()  # 归一化概率，使其和为1
+        if not np.isclose(probs.sum(), 1):
+            probs = np.clip(probs, 0, 1)
+            min_index = np.argmin(probs)
+            sum = 0
+            for i,num in enumerate(probs):
+                if i != min_index:
+                    sum += num
+            probs[min_index] = 1 - sum
+        all_probs.append(probs)
+    # AUC and F1
+    all_labels = np.array(all_labels)
+    all_preds = np.array(all_preds)
+    all_probs = np.array(all_probs)
+    # print("labels shape:",end="")
+    # print(all_labels.shape)
+    # print("probs shape:",end="")
+    # print(all_probs.shape)
+    # print("preds shape:",end="")
+    # print(all_preds.shape)
+    auc = roc_auc_score(all_labels, all_probs, multi_class='ovr')
+    f1 = f1_score(all_labels, all_preds, average='macro')
+    if plot:
+        cls = classes(config)
+        labels = [sublist[1] for sublist in cls]
+
+        cm = confusion_matrix(np.array(all_labels), np.array(all_preds))
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]  # Convert to percentages
+
+        fig, ax = plt.subplots(figsize=(10, 10))  # Increase figure size
+        im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+        ax.figure.colorbar(im, ax=ax, shrink=0.7)  # Adjust the length of colorbar
+
+        # Show all ticks
+        ax.set_xticks(np.arange(len(labels)))
+        ax.set_yticks(np.arange(len(labels)))
+        # ax.set_xticklabels(labels, rotation=45, fontsize='medium')  # Increase font size
+        # ax.set_yticklabels(labels, fontsize='medium')  # Increase font size
+
+        # Loop over data dimensions and create text annotations
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, format(cm[i, j], '.2f'),  # Show 2 decimal places
+                        ha='center', va='center', color='black')
+
+        fig.tight_layout()  # Increase margin
+        plt.savefig('confusion_matrix.png')
+
+    return acc1_meter.avg, acc3_meter.avg, acc5_meter.avg, auc, f1
 
 def main(config):
     cache_dir = './caches/' +  config.DATA.DATASET + '/'
