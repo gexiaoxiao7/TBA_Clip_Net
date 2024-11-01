@@ -40,6 +40,7 @@ def parse_option():
     parser.add_argument('--lp', type=int)
     parser.add_argument('--only_label', type=int)
     parser.add_argument('--label_smooth', type=int)
+    parser.add_argument("--local_rank", type=int, default=-1, help='local rank for DistributedDataParallel')
     args = parser.parse_args()
     config = get_config(args)
     return args, config
@@ -513,9 +514,19 @@ def main(config):
 
 if __name__ == '__main__':
     args, config = parse_option()
-    # path = 'E:/DATASETS/TBAD-8/tbad-8/cleaning_the_blackboard_20.mp4'
-    # logits = np.array([0.2,0.89,0.4,0.5,0.1,0.5,0.4,0.3])
-    # visual(config, path, logits)
-    # 统计运行main函数需要多少秒
+    # init_distributed
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        rank = int(os.environ["RANK"])
+        world_size = int(os.environ['WORLD_SIZE'])
+        print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
+    else:
+        rank = -1
+        world_size = -1
+
+    torch.cuda.set_device(args.local_rank)
+    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    torch.distributed.barrier(device_ids=[args.local_rank])
+
+
 
     main(config)
