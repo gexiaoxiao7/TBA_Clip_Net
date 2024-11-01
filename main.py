@@ -19,7 +19,13 @@ from utils.tools import AverageMeter, clip_classifier, build_cache_model, pre_lo
     attention_Fuc, promptlearner_Fuc, classes, visual
 from utils.tools import search_hp
 import torch.nn as nn
+import torch.distributed as dist
 from timm.loss import LabelSmoothingCrossEntropy
+import torch.backends.cudnn as cudnn
+import random
+import shutil
+from utils.logger import create_logger
+
 def parse_option():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', '-cfg', required=True, type=str, default='configs/zero_shot/eval/hmdb/tba_clip_hmdb51_base.yaml')
@@ -370,7 +376,7 @@ def validate(output, label, plot = False, config = None):
     all_preds = []
     all_labels = []
     all_probs = []
-    for idx, similarity in enumerate(output):
+    for idx, batch_data in enumerate(output):
         cur_label = label[idx]
         value1, indices_1 = similarity.topk(1, dim=-1)
         value3, indices_3 = similarity.topk(3, dim=-1)
@@ -445,19 +451,21 @@ def validate(output, label, plot = False, config = None):
 def main(config):
     cache_dir = './caches/' +  config.DATA.DATASET + '/'
     os.makedirs(cache_dir, exist_ok=True)
-    print(config, "\n")
+    logger.info(config, "\n")
     config.defrost()  # Unfreeze the config
     config.TIP_ADAPTER.CACHE_DIR = cache_dir
     config.freeze()  # Freeze the config again
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    class_names = [class_name for i, class_name in classes(config)]
+    model = tbaclip.returnCLIP(config, class_names, device)
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False,
+                                                      find_unused_parameters=False)
     #zero-shot
     if config.TRAIN.IF_TEST == 1:
         (_, _, test_data, _, _,
-        _, _, test_loader, _, _) = build_dataloader(config)
-        class_names = [class_name for i, class_name in classes(config)]
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = tbaclip.returnCLIP(config,class_names,device)
+        _, _, test_loader, _, _) = build_dataloader(config, logger)
         acc1 = validate(test_loader, model, config)
-        print(f"Accuracy of the network on the {len(test_data)} test videos: {acc1:.1f}%")
+        logger.info(f"Accuracy of the network on the {len(test_data)} test videos: {acc1:.1f}%")
     else:
         if not os.path.exists(config.OUTPUT):
             with open(config.OUTPUT, 'w') as f:
@@ -470,14 +478,10 @@ def main(config):
         pre_time = int(time.time())
         (train_cache_data, val_data, test_data,train_data_F, train_data_a,
          train_load_cache, val_loader, test_loader, train_load_F, train_load_a)= build_dataloader(config)
-        print(f"process Time cost: {int(time.time()) - pre_time} seconds.")
-        class_names = [class_name for i, class_name in classes(config)]
-
+        logger.info(f"process Time cost: {int(time.time()) - pre_time} seconds.")
         pre_time_seconds = int(time.time())
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = tbaclip.returnCLIP(config, class_names, device)
         # USE adapter-clip
-        print("\nGetting textual features as CLIP's classifier.")
+        logger.info("\nGetting textual features as CLIP's classifier.")
         clip_weights = clip_classifier(class_names, model, config,device)
         # Construct the cache model by few-shot training set
         print("\nConstructing cache model by few-shot visual features and labels.")
@@ -526,6 +530,21 @@ if __name__ == '__main__':
     torch.cuda.set_device(args.local_rank)
     torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
     torch.distributed.barrier(device_ids=[args.local_rank])
+
+    seed = config.SEED + dist.get_rank()
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    cudnn.benchmark = True
+
+    # logger
+    logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(), name=f"{config.MODEL.ARCH}")
+    logger.info(f"working dir: {config.OUTPUT}")
+
+    # save config
+    if dist.get_rank() == 0:
+        logger.info(config)
+        shutil.copy(args.config, config.OUTPUT)
 
 
 

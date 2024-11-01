@@ -9,12 +9,20 @@ import cv2
 import torch
 import clip
 from utils.tools import split_dataset
+import torch.distributed as dist
 import os
+from torch.utils.data.dataloader import default_collate
+from mmcv.parallel import collate
+from collections.abc import Mapping, Sequence
+from functools import partial
+from VideoX.SeqTrack.lib.utils.misc import collate_fn
+
 
 class VideoDataset():
-    def __init__(self,config,preprocess,device,ann_file,shot=0,type = 'train'):
+    def __init__(self,config,preprocess,device,ann_file,logger,shot=0,type = 'train'):
         self.labels_file = config.DATA.LABEL_LIST
         self.ann_file = ann_file
+        self.logger = logger
         self.data_prefix = config.DATA.ROOT
         self.num_frames = config.DATA.NUM_FRAMES
         self.input_size = config.DATA.INPUT_SIZE
@@ -33,7 +41,7 @@ class VideoDataset():
 
     def prepare_frames(self, path):
         if not os.path.exists(path):
-            print(f"File {path} not found.")
+            self.logger.info(f"File {path} not found.")
             return None
         video_capture = cv2.VideoCapture(path)
         total_frames = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -69,7 +77,7 @@ class VideoDataset():
                 for idx in range(total_lines):  # Start from the last third
                     if idx % 1 == 0 and idx != 0:
                         progress = (idx / total_lines) * 100
-                        print(f'Processed {idx} samples, progress: {progress:.2f}%')
+                        self.logger.info(f'Processed {idx} samples, progress: {progress:.2f}%')
                     line = lines[total_lines - idx - 1]
                     line_split = line.strip().split()
                     filename, label = line_split
@@ -90,7 +98,7 @@ class VideoDataset():
                 for idx in range(total_lines):  # Start from the last third
                     if idx % 1 == 0 and idx != 0:
                         progress = (idx / total_lines) * 100
-                        print(f'Processed {idx} samples, progress: {progress:.2f}%')
+                        self.logger.info(f'Processed {idx} samples, progress: {progress:.2f}%')
                     line = lines[total_lines - idx - 1]
                     line_split = line.strip().split()
                     filename, label = line_split
@@ -109,7 +117,7 @@ class VideoDataset():
                 for idx, line in enumerate(fin):
                     if idx % 1 == 0 and idx != 0:
                         progress = (idx / total_lines) * 100
-                        print(f'Processed {idx} samples, progress: {progress:.2f}%')
+                        self.logger.info(f'Processed {idx} samples, progress: {progress:.2f}%')
                     line_split = line.strip().split()
                     filename, label = line_split
                     label = int(label)
@@ -139,6 +147,20 @@ class VideoDataset():
     def __getitem__(self, idx):
         return self.video_info[idx]
 
+def mmcv_collate(batch, samples_per_gpu=1):
+    if not isinstance(batch, Sequence):
+        raise TypeError(f'{batch.dtype} is not supported.')
+    if isinstance(batch[0], Sequence):
+        transposed = zip(*batch)
+        return [collate(samples, samples_per_gpu) for samples in transposed]
+    elif isinstance(batch[0], Mapping):
+        return {
+            key: mmcv_collate([d[key] for d in batch], samples_per_gpu)
+            for key in batch[0]
+        }
+    else:
+        return default_collate(batch)
+
 class SubsetRandomSampler(torch.utils.data.Sampler):
     r"""Samples elements randomly from a given list of indices, without replacement.
 
@@ -156,39 +178,69 @@ class SubsetRandomSampler(torch.utils.data.Sampler):
     def set_epoch(self, epoch):
         self.epoch = epoch
 
-def build_dataloader(config):
+def build_dataloader(config,logger):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     _, preprocess = clip.load(config.MODEL.ARCH, device=device)
+    num_tasks = dist.get_world_size()
+    global_rank = dist.get_rank()
     if config.TIP_ADAPTER.LOAD_PRE_FEAT == 0:
-        test_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TEST_FILE,type='test')
-        indices = list(range(len(test_data)))
-        sampler = SubsetRandomSampler(indices)
-        test_loader = DataLoader(test_data, batch_size=1,sampler=sampler)
+        test_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TEST_FILE,type='test',logger=logger)
+        indices = np.arange(dist.get_rank(), len(test_data), dist.get_world_size())
+        sampler_test = SubsetRandomSampler(indices)
+        test_loader = DataLoader(test_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler_test
+                                 ,num_workers=16, pin_memory=True, drop_last=True,collate_fn=partial(mmcv_collate, samples_per_gpu=2))
     else:
         test_data = None
         test_loader = None
-    print("test_data_finished!")
+    logger.info("test_data_finished!")
     if config.TRAIN.IF_TEST == 0:
-        train_chache_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,shot=config.DATA.CACHE_SIZE,type='train_cache')
-        indices = list(range(len(train_chache_data)))
-        sampler = SubsetRandomSampler(indices)
-        train_loader_cache = DataLoader(train_chache_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler)
+        train_chache_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,shot=config.DATA.CACHE_SIZE,type='train_cache',logger=logger)
+        sampler_train_cache = torch.utils.data.DistributedSampler(
+            train_chache_data, num_replicas=num_tasks, rank=global_rank, shuffle=True
+        )
+        train_loader_cache = DataLoader(
+            train_chache_data, sampler=sampler_train_cache,
+            batch_size=config.TRAIN.BATCH_SIZE,
+            num_workers=16,
+            pin_memory=True,
+            drop_last=True,
+            collate_fn=partial(mmcv_collate, samples_per_gpu=config.TRAIN.BATCH_SIZE),
+        )
 
         train_data_F = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,
-                                         shot=config.DATA.SHOTS, type='train_F')
-        indices = list(range(len(train_data_F)))
-        sampler = SubsetRandomSampler(indices)
-        train_load_F = DataLoader(train_data_F, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler)
-        val_data, val_loader,_,_ = split_dataset(train_data_F,config.TRAIN.BATCH_SIZE)
-        print("val_data finished!")
+                                         shot=config.DATA.SHOTS, type='train_F', logger=logger)
+        sampler_train_F = torch.utils.data.DistributedSampler(
+            train_data_F, num_replicas=num_tasks, rank=global_rank, shuffle=True
+        )
+        train_load_F = DataLoader(
+            train_data_F, sampler=sampler_train_F,
+            batch_size=config.TRAIN.BATCH_SIZE,
+            num_workers=16,
+            pin_memory=True,
+            drop_last=True,
+            collate_fn=partial(mmcv_collate, samples_per_gpu=config.TRAIN.BATCH_SIZE),
+        )
+        val_data, _ = split_dataset(train_data_F)
+        indices = np.arange(dist.get_rank(), len(test_data), dist.get_world_size())
+        sampler_val = SubsetRandomSampler(indices)
+        val_loader = DataLoader(val_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler_val
+                                 ,num_workers=16, pin_memory=True, drop_last=True,collate_fn=partial(mmcv_collate, samples_per_gpu=2))
+        logger.info("val_data finished!")
 
         # Add new train_data_a and train_load_a
         train_data_a = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,
-                                         shot=config.DATA.SHOTS, type='train_a')  # Change the type to 'train_a'
-        indices = list(range(len(train_data_a)))
-        sampler = SubsetRandomSampler(indices)
-        train_load_a = DataLoader(train_data_a, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler)
-
+                                         shot=config.DATA.SHOTS, type='train_a',logger=logger)  # Change the type to 'train_a'
+        sampler_train_a = torch.utils.data.DistributedSampler(
+            train_data_a, num_replicas=num_tasks, rank=global_rank, shuffle=True
+        )
+        train_load_a = DataLoader(
+            train_data_a, sampler=sampler_train_a,
+            batch_size=config.TRAIN.BATCH_SIZE,
+            num_workers=16,
+            pin_memory=True,
+            drop_last=True,
+            collate_fn=partial(mmcv_collate, samples_per_gpu=config.TRAIN.BATCH_SIZE),
+        )
         return train_chache_data, val_data, test_data,train_data_F,train_data_a, train_loader_cache, val_loader, test_loader,train_load_F, train_load_a
     else:
         return (None, None, test_data,None, None,

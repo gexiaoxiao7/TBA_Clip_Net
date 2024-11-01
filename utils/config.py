@@ -41,7 +41,7 @@ _C.TRAIN.IF_TEST = 1
 _C.TRAIN.WARMUP_EPOCHS = 5
 _C.TRAIN.WEIGHT_DECAY = 0.001
 _C.TRAIN.LR = 8.e-6
-_C.TRAIN.BATCH_SIZE = 8
+_C.TRAIN.BATCH_SIZE = 4
 _C.TRAIN.ACCUMULATION_STEPS = 1
 _C.TRAIN.LR_SCHEDULER = 'cosine'
 _C.TRAIN.OPTIMIZER = 'adamw'
@@ -131,7 +131,7 @@ def update_config(config, args):
     if args.label_smooth is not None:
         config.TRAIN.LABEL_SMOOTH = args.label_smooth
     # set local rank for distributed training
-    # config.LOCAL_RANK = args.local_rank
+    config.LOCAL_RANK = args.local_rank
     config.freeze()
 
 def get_config(args):
