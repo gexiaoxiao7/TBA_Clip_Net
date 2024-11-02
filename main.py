@@ -1,17 +1,15 @@
 import numpy as np
 
 import model.TClip as tbaclip
-import clip
 import torch
 import os
 import argparse
-import torch.nn.functional as F
+
 import time
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score, f1_score
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
-from model.tp import Attention
 from model.transformer import FSATransformerEncoder
 from utils.config import get_config
 from dataSets.build import build_dataloader

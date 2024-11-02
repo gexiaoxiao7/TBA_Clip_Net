@@ -1,14 +1,14 @@
 DATA:
     ROOT: 'YOUR_PATH/DATASETS/TBAD-8/tbad-8/'
     TRAIN_FILE: 'datasets_splits/TBAD-8/train.txt'
-    TEST_FILE: 'datasets_splits/TBAD-8/visual/test.txt'
+    TEST_FILE: 'datasets_splits/TBAD-8/test_reordered_part1.txt'
     DATASET: TBAD-8
     NUM_FRAMES: 8
     NUM_CLASSES: 8
     LABEL_LIST: 'labels/TBAD-8_labels.csv'
-    IF_TEACHER: 0
+    IF_TEACHER: 1
     SHOTS: 8
-    CACHE_SIZE: 8
+    CACHE_SIZE: 1
 MODEL:
     ARCH: ViT-L/14@336px
     YOLO: 'Yolo-model/yolov8n.pt'
@@ -17,17 +17,17 @@ MODEL:
 TRAIN:
     LABEL_SMOOTH: 1
     IF_TEST: 0
-    ZS: 1
+    ZS: 0
     LP: 1
-    BATCH_SIZE: 1 # BS 64
+    BATCH_SIZE: 4 # BS 64
     ACCUMULATION_STEPS: 2
-    EPOCHS: 15
+    EPOCHS: 1
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''
-    LOAD_CACHE: 1
-    AUGMENT_EPOCH: 30
-    LOAD_PRE_FEAT: 1
+    LOAD_CACHE: 0
+    AUGMENT_EPOCH: 1
+    LOAD_PRE_FEAT: 0
     INIT_BETA: 1
     INIT_ALPHA: 3
 TEXT_PROMPT:

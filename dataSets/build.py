@@ -11,11 +11,6 @@ import clip
 from utils.tools import split_dataset
 import torch.distributed as dist
 import os
-from torch.utils.data.dataloader import default_collate
-from mmcv.parallel import collate
-from collections.abc import Mapping, Sequence
-from functools import partial
-from VideoX.SeqTrack.lib.utils.misc import collate_fn
 
 
 class VideoDataset():
@@ -147,19 +142,6 @@ class VideoDataset():
     def __getitem__(self, idx):
         return self.video_info[idx]
 
-def mmcv_collate(batch, samples_per_gpu=1):
-    if not isinstance(batch, Sequence):
-        raise TypeError(f'{batch.dtype} is not supported.')
-    if isinstance(batch[0], Sequence):
-        transposed = zip(*batch)
-        return [collate(samples, samples_per_gpu) for samples in transposed]
-    elif isinstance(batch[0], Mapping):
-        return {
-            key: mmcv_collate([d[key] for d in batch], samples_per_gpu)
-            for key in batch[0]
-        }
-    else:
-        return default_collate(batch)
 
 class SubsetRandomSampler(torch.utils.data.Sampler):
     r"""Samples elements randomly from a given list of indices, without replacement.
@@ -188,7 +170,7 @@ def build_dataloader(config,logger):
         indices = np.arange(dist.get_rank(), len(test_data), dist.get_world_size())
         sampler_test = SubsetRandomSampler(indices)
         test_loader = DataLoader(test_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler_test
-                                 ,num_workers=16, pin_memory=True, drop_last=True,collate_fn=partial(mmcv_collate, samples_per_gpu=2))
+                                 ,num_workers=16, pin_memory=True, drop_last=True)
     else:
         test_data = None
         test_loader = None
@@ -203,8 +185,7 @@ def build_dataloader(config,logger):
             batch_size=config.TRAIN.BATCH_SIZE,
             num_workers=16,
             pin_memory=True,
-            drop_last=True,
-            collate_fn=partial(mmcv_collate, samples_per_gpu=config.TRAIN.BATCH_SIZE),
+            drop_last=True
         )
 
         train_data_F = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,
@@ -217,14 +198,13 @@ def build_dataloader(config,logger):
             batch_size=config.TRAIN.BATCH_SIZE,
             num_workers=16,
             pin_memory=True,
-            drop_last=True,
-            collate_fn=partial(mmcv_collate, samples_per_gpu=config.TRAIN.BATCH_SIZE),
+            drop_last=True
         )
         val_data, _ = split_dataset(train_data_F)
         indices = np.arange(dist.get_rank(), len(test_data), dist.get_world_size())
         sampler_val = SubsetRandomSampler(indices)
         val_loader = DataLoader(val_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler_val
-                                 ,num_workers=16, pin_memory=True, drop_last=True,collate_fn=partial(mmcv_collate, samples_per_gpu=2))
+                                 ,num_workers=16, pin_memory=True, drop_last=True)
         logger.info("val_data finished!")
 
         # Add new train_data_a and train_load_a
@@ -238,8 +218,7 @@ def build_dataloader(config,logger):
             batch_size=config.TRAIN.BATCH_SIZE,
             num_workers=16,
             pin_memory=True,
-            drop_last=True,
-            collate_fn=partial(mmcv_collate, samples_per_gpu=config.TRAIN.BATCH_SIZE),
+            drop_last=True
         )
         return train_chache_data, val_data, test_data,train_data_F,train_data_a, train_loader_cache, val_loader, test_loader,train_load_F, train_load_a
     else:
