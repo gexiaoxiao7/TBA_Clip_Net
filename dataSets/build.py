@@ -160,6 +160,7 @@ class SubsetRandomSampler(torch.utils.data.Sampler):
     def set_epoch(self, epoch):
         self.epoch = epoch
 
+# TODO：都读成多线程？
 def build_dataloader(config,logger):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     _, preprocess = clip.load(config.MODEL.ARCH, device=device)
@@ -175,6 +176,7 @@ def build_dataloader(config,logger):
         test_data = None
         test_loader = None
     logger.info("test_data_finished!")
+
     if config.TRAIN.IF_TEST == 0:
         train_chache_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,shot=config.DATA.CACHE_SIZE,type='train_cache',logger=logger)
         sampler_train_cache = torch.utils.data.DistributedSampler(
@@ -201,7 +203,7 @@ def build_dataloader(config,logger):
             drop_last=True
         )
         val_data, _ = split_dataset(train_data_F)
-        indices = np.arange(dist.get_rank(), len(test_data), dist.get_world_size())
+        indices = np.arange(dist.get_rank(), len(val_data), dist.get_world_size())
         sampler_val = SubsetRandomSampler(indices)
         val_loader = DataLoader(val_data, batch_size=config.TRAIN.BATCH_SIZE,sampler=sampler_val
                                  ,num_workers=16, pin_memory=True, drop_last=True)

@@ -46,7 +46,7 @@ def clip_classifier(classnames,clip_model,config,device):
         else:
             prompts = classnames
         x = [clip.tokenize(prompt).to(device) for prompt in prompts]
-        clip_weights = [clip_model.model.encode_text(i) for i in x]
+        clip_weights = [clip_model.module.encode_text(i) for i in x]
         # x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
         clip_weights = torch.stack(clip_weights)
         clip_weights = clip_weights.squeeze(dim=1)

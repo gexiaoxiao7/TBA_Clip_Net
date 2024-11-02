@@ -449,7 +449,6 @@ def validate(output, label, plot = False, config = None):
 def main(config):
     cache_dir = './caches/' +  config.DATA.DATASET + '/'
     os.makedirs(cache_dir, exist_ok=True)
-    logger.info(config, "\n")
     config.defrost()  # Unfreeze the config
     config.TIP_ADAPTER.CACHE_DIR = cache_dir
     config.freeze()  # Freeze the config again
@@ -475,7 +474,7 @@ def main(config):
                 f.write('Model,Arch,If_teacher,Num_Frames,Acc1,Acc3,Acc5,AUC,F1,Dataset,Shots,n_ctx,cache_size,TEMPORAL_POOLING\n')
         pre_time = int(time.time())
         (train_cache_data, val_data, test_data,train_data_F, train_data_a,
-         train_load_cache, val_loader, test_loader, train_load_F, train_load_a)= build_dataloader(config)
+         train_load_cache, val_loader, test_loader, train_load_F, train_load_a)= build_dataloader(config, logger)
         logger.info(f"process Time cost: {int(time.time()) - pre_time} seconds.")
         pre_time_seconds = int(time.time())
         # USE adapter-clip
@@ -486,7 +485,7 @@ def main(config):
         cache_keys, cache_values = build_cache_model(config, model, train_load_cache)
         # Pre-load val features
         print("\nLoading visual features and labels from val set.")
-        val_features, val_labels,attention_val_feature = pre_load_features(config, "val", model, val_loader)
+        val_features, val_labels, attention_val_feature = pre_load_features(config, "val", model, val_loader)
         # Pre-load test features
         print("\nLoading visual features and labels from test set.")
         test_features, test_labels, attention_test_feature = pre_load_features(config, "test", model, test_loader)
@@ -526,18 +525,21 @@ if __name__ == '__main__':
         world_size = -1
 
     torch.cuda.set_device(args.local_rank)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    # torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank) #for linux
+    torch.distributed.init_process_group(backend='gloo', init_method='env://', world_size=world_size, rank=rank)
     torch.distributed.barrier(device_ids=[args.local_rank])
 
-    seed = config.SEED + dist.get_rank()
+    # logger
+    logger = create_logger(output_dir='train_output', dist_rank=dist.get_rank(), name=f"{config.MODEL.ARCH}")
+    logger.info(config)
+
+    seed = dist.get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
     cudnn.benchmark = True
 
-    # logger
-    logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(), name=f"{config.MODEL.ARCH}")
-    logger.info(f"working dir: {config.OUTPUT}")
+
 
     # save config
     if dist.get_rank() == 0:
