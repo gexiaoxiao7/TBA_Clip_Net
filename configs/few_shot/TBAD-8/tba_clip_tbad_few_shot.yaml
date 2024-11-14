@@ -8,7 +8,7 @@ DATA:
     LABEL_LIST: 'labels/TBAD-8_labels.csv'
     IF_TEACHER: 1
     SHOTS: 8
-    CACHE_SIZE: 1
+    CACHE_SIZE: 8
 MODEL:
     ARCH: ViT-L/14@336px
     YOLO: 'Yolo-model/yolov8n.pt'
@@ -27,7 +27,7 @@ TIP_ADAPTER:
     CACHE_DIR: ''
     LOAD_CACHE: 0
     AUGMENT_EPOCH: 1
-    LOAD_PRE_FEAT: 1
+    LOAD_PRE_FEAT: 0
     INIT_BETA: 1
     INIT_ALPHA: 3
 TEXT_PROMPT:

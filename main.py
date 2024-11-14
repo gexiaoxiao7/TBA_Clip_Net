@@ -481,13 +481,13 @@ def main(config):
         logger.info("\nGetting textual features as CLIP's classifier.")
         clip_weights = clip_classifier(class_names, model, config,device)
         # Construct the cache model by few-shot training set
-        print("\nConstructing cache model by few-shot visual features and labels.")
-        cache_keys, cache_values = build_cache_model(config, model, train_load_cache)
+        logger.info("\nConstructing cache model by few-shot visual features and labels.")
+        cache_keys, cache_values = build_cache_model(config, model, train_load_cache, logger)
         # Pre-load val features
-        print("\nLoading visual features and labels from val set.")
+        logger.info("\nLoading visual features and labels from val set.")
         val_features, val_labels, attention_val_feature = pre_load_features(config, "val", model, val_loader)
         # Pre-load test features
-        print("\nLoading visual features and labels from test set.")
+        logger.info("\nLoading visual features and labels from test set.")
         test_features, test_labels, attention_test_feature = pre_load_features(config, "test", model, test_loader)
         #load_attention
         attention_net = FSATransformerEncoder(dim=model.model.visual.output_dim, depth=6,

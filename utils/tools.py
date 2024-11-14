@@ -46,7 +46,7 @@ def clip_classifier(classnames,clip_model,config,device):
         else:
             prompts = classnames
         x = [clip.tokenize(prompt).to(device) for prompt in prompts]
-        clip_weights = [clip_model.module.encode_text(i) for i in x]
+        clip_weights = [clip_model.module.model.encode_text(i) for i in x]
         # x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
         clip_weights = torch.stack(clip_weights)
         clip_weights = clip_weights.squeeze(dim=1)
@@ -57,7 +57,7 @@ def classes(config):
     classes_all = pd.read_csv(config.DATA.LABEL_LIST)
     return classes_all.values.tolist()
 
-def build_cache_model(config, clip_model, train_loader_cache):
+def build_cache_model(config, clip_model, train_loader_cache,logger):
     if config.TIP_ADAPTER.LOAD_CACHE == 0:
         cache_keys = []
         cache_values = []
@@ -68,7 +68,15 @@ def build_cache_model(config, clip_model, train_loader_cache):
                 train_features = []
 
                 print('Augment Epoch: {:} / {:}'.format(augment_idx, config.TIP_ADAPTER.AUGMENT_EPOCH))
-                for idx, batch_data in enumerate(tqdm(train_loader_cache)):
+
+
+                for idx, batch_data in enumerate(train_loader_cache):
+
+                    if idx % 10 == 0:
+                        logger.info(
+                            f'Process: [{idx}/{len(train_loader_cache)}]\t'
+                        )
+
                     images = batch_data['data']
                     label_id = batch_data['label']
                     image_input = []
