@@ -294,16 +294,12 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net):
                    config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "prompt_learner.pth")
 
 def train_attention(clip_model,device,config,train_loader,clip_weights):
-    attention_net = FSATransformerEncoder(dim=clip_model.model.visual.output_dim, depth=6,
+    attention_net = FSATransformerEncoder(dim=clip_model.module.model.visual.output_dim, depth=6,
                                       heads=1, dim_head=64,
-                                      mlp_dim=clip_model.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
+                                      mlp_dim=clip_model.module.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
                                       nh=1, nw=1,
                                       dropout=0.1).to(device).to(torch.half)
-    # attention_net = FSATransformerEncoder(dim=clip_model.visual.output_dim, depth=6,
-    #                                   heads=1, dim_head=64,
-    #                                   mlp_dim=clip_model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
-    #                                   nh=1, nw=1,
-    #                                   dropout=0.1).to(device).to(torch.half)
+    #TODO:
     optimizer = torch.optim.Adam(attention_net.parameters(), lr=config.TRAIN.LR, eps=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config.TRAIN.EPOCHS * len(train_loader))
 
@@ -490,12 +486,12 @@ def main(config):
         logger.info("\nLoading visual features and labels from test set.")
         test_features, test_labels, attention_test_feature = pre_load_features(config, "test", model, test_loader)
         #load_attention
-        attention_net = FSATransformerEncoder(dim=model.model.visual.output_dim, depth=6,
+        attention_net = FSATransformerEncoder(dim=model.module.model.visual.output_dim, depth=6,
                                           heads=1, dim_head=64,
-                                          mlp_dim=model.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
+                                          mlp_dim=model.module.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
                                           nh=1, nw=1,
                                           dropout=0.1).to(device).to(torch.half)
-        print("\nTraining attention Net.")
+        logger.info("\nTraining attention Net.")
         if config.MODEL.LOAD_ATTENTION == 0 and config.TEMPORAL_POOLING == 'attention' and config.TRAIN.ZS == 0:
             train_attention(model, device, config, train_load_F, clip_weights)
         # use prompt_learner
