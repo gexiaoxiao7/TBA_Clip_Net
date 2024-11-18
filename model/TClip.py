@@ -23,21 +23,28 @@ class VideoEncoder(nn.Module):
         self.device = device
         self.config = config
     def forward(self, images):
-        video_info = images
-        video_info = [torch.from_numpy(x).to(self.device).type(self.dtype) for x in video_info]
-        image_features = [self.model.encode_image(x) for x in video_info]
-        image_features = torch.stack(image_features, dim=1).to(torch.half)
+        video_info = images # b, n_frames, c, height, weight
+        image_features = torch.stack(
+            [torch.stack([self.model.encode_image(video_info[i, j]) for j in range(video_info.shape[1])], dim=0) for i in range(video_info.shape[0])],
+            dim=0)
+
+        # video_info = [torch.from_numpy(x).to(self.device).type(self.dtype) for x in video_info]
+        # image_features = [self.model.encode_image(x) for x in video_info]
+        # image_features = torch.stack(image_features, dim=1).to(torch.half)
+
+        # b, n_frames, dim
         attention_format_features = image_features
         video_feature = torch.mean(image_features, dim=1)
-        video_features = torch.unsqueeze(video_feature, 0)
+
+        # video_feature = torch.unsqueeze(video_feature, 0)
         if self.config.TEMPORAL_POOLING == 'mean':
-            return video_features, None
+            return video_feature, None
         else:
-            return video_features, attention_format_features
+            return video_feature, attention_format_features
 
 
 class PromptLearner(nn.Module):
-    def __init__(self, cfg, classnames, clip_model,device):
+    def __init__(self, cfg, classnames, clip_model,device,logger):
         super().__init__()
         n_cls = len(classnames)
         n_ctx_pre = cfg.TEXT_PROMPT.N_CTX_PRE
@@ -75,10 +82,10 @@ class PromptLearner(nn.Module):
             nn.init.normal_(ctx_post_vectors, std=0.02)
             prompt_suffix = " ".join(["X"] * n_ctx_post)
 
-        print(f'Initial context: "{prompt_prefix}"')
-        print(f"Number of context words (tokens): {n_ctx_pre}")
-        print(f'Final context: "{prompt_suffix}"')
-        print(f"Number of context words (tokens): {n_ctx_post}")
+        logger.info(f'Initial context: "{prompt_prefix}"')
+        logger.info(f"Number of context words (tokens): {n_ctx_pre}")
+        logger.info(f'Final context: "{prompt_suffix}"')
+        logger.info(f"Number of context words (tokens): {n_ctx_post}")
 
 
         self.ctx_pre = nn.Parameter(ctx_pre_vectors)
@@ -184,11 +191,11 @@ class TextEncoder(nn.Module):
 
 
 class TBA_Clip(nn.Module):
-    def __init__(self, clip_model, preprocess, classnames, device,config):
+    def __init__(self, clip_model, preprocess, classnames, device, logger ,config):
         super().__init__()
         self.model = clip_model
         self.attention = Attention(feature_dim=clip_model.visual.output_dim).to(device).to(torch.half)
-        self.prompts_learner = PromptLearner(config, classnames, clip_model,device).to(torch.half)
+        self.prompts_learner = PromptLearner(config, classnames, clip_model,device,logger).to(torch.half)
         self.tokenized_prompts = self.prompts_learner.tokenized_prompts
         self.preprocess = preprocess
         self.text_encoder = TextEncoder(clip_model)
@@ -225,7 +232,7 @@ class TBA_Clip(nn.Module):
             similarity = (100.0 * image_feature @ text_feature.T).softmax(dim=-1)
             return similarity,image_features,text_features,attention_format_features
 
-def returnCLIP(config,classnames,device):
+def returnCLIP(config,classnames,device,logger):
     clip_model, preprocess = clip.load(config.MODEL.ARCH, device = device)
-    model = TBA_Clip(clip_model, preprocess,classnames,device,config)
+    model = TBA_Clip(clip_model, preprocess,classnames,device,logger,config)
     return model

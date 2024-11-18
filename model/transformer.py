@@ -80,9 +80,9 @@ class FSATransformerEncoder(nn.Module):
                  ]))
 
     def forward(self, x):
-        x = x.unsqueeze(2)
+        x = x.squeeze(2)
         b = x.shape[0]
-        x = torch.flatten(x, start_dim=0, end_dim=1)  # extract spatial tokens from x
+        # x = torch.flatten(x, start_dim=0, end_dim=1)  # extract spatial tokens from x
 
         for sp_attn, temp_attn, ff in self.layers:
             sp_attn_x = sp_attn(x) + x  # Spatial attention

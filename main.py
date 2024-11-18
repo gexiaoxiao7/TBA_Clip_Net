@@ -109,17 +109,19 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
             torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "prompt_learner.pth"))
 
     test_features = test_features if config.TEMPORAL_POOLING != 'attention' else attention_Fuc(attention_net,
-                                                                                               attention_test_feature)
-    val_features = val_features if config.TEMPORAL_POOLING != 'attention' else attention_Fuc(attention_net,attention_val_feature)
+                                                                                               attention_test_feature,test_features)
+    val_features = val_features if config.TEMPORAL_POOLING != 'attention' else attention_Fuc(attention_net,attention_val_feature,val_features)
     # Enable the cached keys to be learnable
 
 
-    adapter = nn.Linear(cache_keys.shape[0], cache_keys.shape[1], bias=False).to(clip_model.dtype).cuda()
-    adapter.weight = nn.Parameter(cache_keys.t())
+    adapter = nn.Linear(cache_keys.shape[0], cache_keys.shape[1], bias=False).to(clip_model.module.dtype).cuda()
+    adapter = torch.nn.parallel.DistributedDataParallel(adapter, device_ids=[config.LOCAL_RANK], broadcast_buffers=False,
+                                                      find_unused_parameters=False)
+    adapter.module.weight = nn.Parameter(cache_keys.t())
 
     optimizer = torch.optim.AdamW(adapter.parameters(), lr=config.TRAIN.LR, eps=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config.TRAIN.EPOCHS * len(train_loader_F))
-
+    criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
     beta, alpha = config.TIP_ADAPTER.INIT_BETA, config.TIP_ADAPTER.INIT_ALPHA
     best_acc, best_epoch = 0.0, 0
 
@@ -129,22 +131,18 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
         adapter.train()
         loss_list = []
         print('Train Epoch: {:} / {:}'.format(train_idx, config.TRAIN.EPOCHS))
-        acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
         for idx, batch_data in enumerate(tqdm(train_loader_F)):
             images = batch_data['data']
+            images = torch.stack(images)
+            images = torch.transpose(images, 0, 1)
             label_id = batch_data['label']
             with torch.no_grad():
-                image_input = []
-                for image in images:
-                    image = image.cpu().numpy()
-                    image_input.append(image)
-                image_input = [item for sublist in image_input for item in sublist]
-                clip_logits, image_features, _,attention_format = clip_model(image_input)
+                clip_logits, image_features, _,attention_format = clip_model(images)
                 if config.TEMPORAL_POOLING == 'attention':
-                    t = []
-                    t.append(attention_format)
-                    attention_format = t
-                    image_features = attention_Fuc(attention_net,attention_format)
+                    attention_net.eval()
+                    attention_weights = attention_net(attention_format)
+                    weighted_features = torch.mul(attention_weights, image_features)
+                    image_features = torch.mean(weighted_features, dim=1)
                 else:
                     image_features /= image_features.norm(dim=-1, keepdim=True)
                 if config.TRAIN.LP == 1:
@@ -152,23 +150,10 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
             affinity = adapter(image_features)
             cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
             tip_logits = clip_logits + cache_logits * alpha
-            value_1, indices_1 = tip_logits.topk(1, dim=-1)
-            value_5, indices_5 = tip_logits.topk(5, dim=-1)
-            acc1, acc5 = 0, 0
-            for i in range(b):  # batch_size
-                if indices_1[i] == label_id[i]:
-                    acc1 += 1
-                if label_id[i] in indices_5:
-                    acc5 += 1
-            acc1_meter.update(float(acc1) / b * 100, b)
-            acc5_meter.update(float(acc5) / b * 100, b)
-            #修改成label_smooth的损失函数
 
             # 用交叉熵损失函数
-            criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
+
             label_id = label_id.to(tip_logits.device)
-            #把tip_logits的维度从[1,1,51]转到[1,51]
-            tip_logits = tip_logits.squeeze(1)
             loss = criterion(tip_logits, label_id)
             loss_list.append(loss.item())
 
@@ -176,9 +161,9 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
             loss.backward()
             optimizer.step()
             scheduler.step()
-
+        torch.cuda.synchronize()
         current_lr = scheduler.get_last_lr()[0]
-        print('LR: {:.6f}, Acc@1: {:.4f}, Loss: {:.4f}'.format(current_lr, acc1_meter.avg, sum(loss_list) / len(loss_list)))
+        print('LR: {:.6f}, Loss: {:.4f}'.format(current_lr, sum(loss_list) / len(loss_list)))
 
         # Eval
         adapter.eval()
@@ -216,65 +201,48 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
             f'Tip-Adapter-F,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc3:.3f},{acc5:.3f},{auc:.3f},{f1:.3f},{config.DATA.DATASET},'
             f'{config.DATA.SHOTS} ,{str(config.TEXT_PROMPT.N_CTX_PRE) + " " + str(config.TEXT_PROMPT.N_CTX_POST) },{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}\n')
 
-def train_lp(clip_model,device,config,train_loader,class_names,attention_net):
-
+def train_lp(clip_model,device,config,train_loader,class_names,attention_net,logger):
     if config.TEMPORAL_POOLING == 'attention':
         attention_net.load_state_dict(
             torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "attention_model.pth"))
 
-    prompt_learner = tbaclip.PromptLearner(config, class_names, clip_model.model, device).to(torch.half)
+    prompt_learner = tbaclip.PromptLearner(config, class_names, clip_model.module.model, device, logger).to(torch.half)
+    prompt_learner = torch.nn.parallel.DistributedDataParallel(prompt_learner, device_ids=[config.LOCAL_RANK], broadcast_buffers=False,
+                                                      find_unused_parameters=False)
+
     optimizer = torch.optim.Adam(prompt_learner.parameters(), lr=config.TRAIN.LR, eps=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config.TRAIN.EPOCHS * len(train_loader))
-
+    criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
     for train_idx in range(config.TRAIN.EPOCHS):
         # Train
         b = config.TRAIN.BATCH_SIZE
         prompt_learner.train()
         loss_list = []
         print('Train Epoch: {:} / {:}'.format(train_idx, config.TRAIN.EPOCHS))
-        acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
         for idx, batch_data in enumerate(tqdm(train_loader)):
             images = batch_data['data']
+            images = torch.stack(images)
+            images = torch.transpose(images, 0, 1)
             label_id = batch_data['label']
             with torch.no_grad():
-                image_input = []
-                for image in images:
-                    image = image.cpu().numpy()
-                    image_input.append(image)
-                image_input = [item for sublist in image_input for item in sublist]
-                _, image_features, _,attention_format = clip_model(image_input)
+                _, image_features, _,attention_format = clip_model(images)
                 if config.TEMPORAL_POOLING == 'attention':
-                    t = []
-                    t.append(attention_format)
-                    attention_format = t
-                    image_features = attention_Fuc(attention_net,attention_format)
-                    # 增加一个维度
-                    image_features = torch.unsqueeze(image_features, 0)
+                    attention_net.eval()
+                    attention_weights = attention_net(attention_format)
+                    weighted_features = torch.mul(attention_weights, image_features)
+                    image_features = torch.mean(weighted_features, dim=1)
                 else:
                     image_features /= image_features.norm(dim=-1, keepdim=True)
             logits = []
             prompts = prompt_learner(image_features)
             for pts_i, imf_i in zip(prompts, image_features):
-                text_features = clip_model.text_encoder(pts_i, prompt_learner.tokenized_prompts)
+                text_features = clip_model.module.text_encoder(pts_i, prompt_learner.module.tokenized_prompts)
                 text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-                l_i = (clip_model.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
+                l_i = (clip_model.module.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
                 logits.append(l_i)
             logits = torch.stack(logits)
-            value_1, indices_1 = logits.topk(1, dim=-1)
-            value_5, indices_5 = logits.topk(5, dim=-1)
-            acc1, acc5 = 0, 0
-            for i in range(b):  # batch_size
-                if indices_1[i] == label_id[i]:
-                    acc1 += 1
-                if label_id[i] in indices_5:
-                    acc5 += 1
-            acc1_meter.update(float(acc1) / b * 100, b)
-            acc5_meter.update(float(acc5) / b * 100, b)
             # 修改成label_smooth的损失函数
-            criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
             label_id = label_id.to(logits.device)
-            # 把tip_logits的维度从[1,1,51]转到[1,51]
-            logits = logits.squeeze(1)
             loss = criterion(logits, label_id)
 
             loss_list.append(loss.item())
@@ -285,13 +253,12 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net):
             optimizer.step()
             prompt_learner.half()
             scheduler.step()
-
+        torch.cuda.synchronize()
         current_lr = scheduler.get_last_lr()[0]
-        print('LR: {:.6f}, Acc@1: {:.4f}, Loss: {:.4f}'.format(current_lr, acc1_meter.avg,
-                                                               sum(loss_list) / len(loss_list)))
+        print('LR: {:.6f}, Loss: {:.4f}'.format(current_lr,sum(loss_list) / len(loss_list)))
 
-        torch.save(prompt_learner.state_dict(),
-                   config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "prompt_learner.pth")
+    model_path = config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "prompt_learner.pth"
+    torch.save(prompt_learner.module.state_dict() if hasattr(prompt_learner, 'module') else prompt_learner.state_dict(), model_path)
 
 def train_attention(clip_model,device,config,train_loader,clip_weights):
     attention_net = FSATransformerEncoder(dim=clip_model.module.model.visual.output_dim, depth=6,
@@ -299,54 +266,47 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
                                       mlp_dim=clip_model.module.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
                                       nh=1, nw=1,
                                       dropout=0.1).to(device).to(torch.half)
-    #TODO:
+
+    attention_net = torch.nn.parallel.DistributedDataParallel(attention_net, device_ids=[config.LOCAL_RANK], broadcast_buffers=False,
+                                                      find_unused_parameters=False)
+
+
     optimizer = torch.optim.Adam(attention_net.parameters(), lr=config.TRAIN.LR, eps=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config.TRAIN.EPOCHS * len(train_loader))
-
-
+    criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
 
     for train_idx in range(config.TRAIN.EPOCHS):
         # Train
         b = config.TRAIN.BATCH_SIZE
         attention_net.train()
         loss_list = []
-        print('Train Epoch: {:} / {:}'.format(train_idx, config.TRAIN.EPOCHS))
-        acc1_meter, acc5_meter = AverageMeter(), AverageMeter()
+        logger.info('Train Epoch: {:} / {:}'.format(train_idx, config.TRAIN.EPOCHS))
         for idx, batch_data in enumerate(tqdm(train_loader)):
             images = batch_data['data']
+            images = torch.stack(images)
+            images = torch.transpose(images, 0, 1)
+            # images = batch_data['data']
             label_id = batch_data['label']
             with torch.no_grad():
-                image_input = []
-                for image in images:
-                    image = image.cpu().numpy()
-                    image_input.append(image)
-                image_input = [item for sublist in image_input for item in sublist]
-                _,image_features,_,image_features_attention = clip_model(image_input)
+                # image_input = []
+                # for image in images:
+                #     image = image.cpu().numpy()
+                #     image_input.append(image)
+                # images = [item for sublist in image_input for item in sublist]
+
+                # input:  b, n_frame, c, high, weight
+                # output: b, n_frame, feature_dim
+                _,image_features,_,image_features_attention = clip_model(images)
             attention_weights = attention_net(image_features_attention)
-            # video_feature = torch.sum(torch.bmm(attention_weights.transpose(1, 2), image_features), dim=1)
 
             weighted_features = torch.mul(attention_weights, image_features)
             video_feature = torch.mean(weighted_features, dim=1)
 
-            video_features = torch.unsqueeze(video_feature, 0)
-            norm = video_features.norm(dim=-1, keepdim=True)
-            video_features = video_features / norm
+            norm = video_feature.norm(dim=-1, keepdim=True)
+            video_features = video_feature / norm
             clip_logits = (100. * video_features @ clip_weights.T).softmax(dim=-1)
-            value_1, indices_1 = clip_logits.topk(1, dim=-1)
-            value_5, indices_5 = clip_logits.topk(5, dim=-1)
-            acc1, acc5 = 0, 0
-            for i in range(b):  # batch_size
-                if indices_1[i] == label_id[i]:
-                    acc1 += 1
-                if label_id[i] in indices_5:
-                    acc5 += 1
-            acc1_meter.update(float(acc1) / b * 100, b)
-            acc5_meter.update(float(acc5) / b * 100, b)
-            # 修改成label_smooth的损失函数
-            criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
+
             label_id = label_id.to(clip_logits.device)
-            # 把tip_logits的维度从[1,1,51]转到[1,51]
-            clip_logits = clip_logits.squeeze(1)
             loss = criterion(clip_logits, label_id)
 
             loss_list.append(loss.item())
@@ -356,11 +316,12 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
             optimizer.step()
             scheduler.step()
 
+        torch.cuda.synchronize()
         current_lr = scheduler.get_last_lr()[0]
-        print('LR: {:.6f}, Acc@1: {:.4f}, Loss: {:.4f}'.format(current_lr, acc1_meter.avg,
-                                                               sum(loss_list) / len(loss_list)))
+        print('LR: {:.6f}, Loss: {:.4f}'.format(current_lr, sum(loss_list) / len(loss_list)))
 
-        torch.save(attention_net.state_dict(), config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) +"attention_model.pth")
+    model_path = config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "attention_model.pth"
+    torch.save(attention_net.module.state_dict() if hasattr(attention_net, 'module') else attention_net.state_dict(), model_path)
 
 @torch.no_grad()
 def validate(output, label, plot = False, config = None):
@@ -450,7 +411,7 @@ def main(config):
     config.freeze()  # Freeze the config again
     device = "cuda" if torch.cuda.is_available() else "cpu"
     class_names = [class_name for i, class_name in classes(config)]
-    model = tbaclip.returnCLIP(config, class_names, device)
+    model = tbaclip.returnCLIP(config, class_names, device,logger)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False,
                                                       find_unused_parameters=False)
     #zero-shot
@@ -493,12 +454,12 @@ def main(config):
                                           dropout=0.1).to(device).to(torch.half)
         logger.info("\nTraining attention Net.")
         if config.MODEL.LOAD_ATTENTION == 0 and config.TEMPORAL_POOLING == 'attention' and config.TRAIN.ZS == 0:
-            train_attention(model, device, config, train_load_F, clip_weights)
+            train_attention(model, device ,config, train_load_F, clip_weights)
         # use prompt_learner
-        print("\nTraining Prompt Learner.")
-        prompt_learner = tbaclip.PromptLearner(config, class_names, model.model, device).to(torch.half)
+        logger.info("\nTraining Prompt Learner.")
+        prompt_learner = tbaclip.PromptLearner(config, class_names, model.module.model, device, logger).to(torch.half)
         if config.MODEL.LOAD_LP == 0 and config.TRAIN.LP == 1 and config.TRAIN.ZS == 0 :
-            train_lp(model, device, config, train_load_a, class_names,attention_net)
+            train_lp(model, device, config, train_load_a, class_names,attention_net,logger)
         # ------------------------------------------ Tip-Adapter ------------------------------------------
         if config.TRAIN.ZS == 1:
             run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,clip_weights)

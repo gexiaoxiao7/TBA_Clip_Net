@@ -78,21 +78,27 @@ def build_cache_model(config, clip_model, train_loader_cache,logger):
                         )
 
                     images = batch_data['data']
+                    images = torch.stack(images)
+                    images = torch.transpose(images, 0, 1)
                     label_id = batch_data['label']
-                    image_input = []
-                    for image in images:
-                        image = image.cpu().numpy()
-                        image_input.append(image)
-                    image_input = [item for sublist in image_input for item in sublist]
-                    _,image_features,_,_  = clip_model(image_input)
+                    # image_input = []
+                    # for image in images:
+                    #     image = image.cpu().numpy()
+                    #     image_input.append(image)
+                    # image_input = [item for sublist in image_input for item in sublist]
+                    _,image_features,_,_  = clip_model(images)
                     image_features = image_features.squeeze(0)
                     train_features.append(image_features)
                     if augment_idx == 0:
                         target = label_id
                         cache_values.append(target)
+                torch.cuda.synchronize()
                 cache_keys.append(torch.cat(train_features, dim=0).unsqueeze(0))
 
         cache_keys = torch.cat(cache_keys, dim=0).mean(dim=0)
+
+        cache_keys = cache_keys.squeeze(1)
+
         cache_keys /= cache_keys.norm(dim=-1, keepdim=True)
         cache_keys = cache_keys.permute(1, 0)
         cache_values = F.one_hot(torch.cat(cache_values, dim=0)).half()
@@ -114,21 +120,16 @@ def pre_load_features(config, split, clip_model, loader):
         with torch.no_grad():
             for idx, batch_data in enumerate(tqdm(loader)):
                 images = batch_data['data']
+                images = torch.stack(images)
+                images = torch.transpose(images, 0, 1)
                 label_id = batch_data['label']
-                image_input = []
-                for image in images:
-                    image = image.cpu().numpy()
-                    image_input.append(image)
-                image_input = [item for sublist in image_input for item in sublist]
-                _,image_features,_,attention_format_feature= clip_model(image_input)
+                _,image_features,_,attention_format_feature= clip_model(images)
                 image_features /= image_features.norm(dim=-1, keepdim=True)
-                #把 image_features 从[1,1,512] 转换成[1,512]
-                image_features = image_features.squeeze(0)
                 features.append(image_features)
                 labels.append(label_id)
                 attention_feature.append(attention_format_feature)
 
-        features, labels = torch.cat(features), torch.cat(labels)
+        features, labels, attention_feature = torch.cat(features), torch.cat(labels), torch.cat(attention_feature)
 
         torch.save(features, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_f.pt")
         torch.save(labels, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_l.pt")
@@ -206,35 +207,20 @@ def split_dataset(dataset):
 
     return subset1,subset2
 
-def attention_Fuc(attention_net, attention_feature):
+def attention_Fuc(attention_net, attention_feature, image_features):
     attention_net.eval()
-    res = []
-    for feature in attention_feature:
-        # feature = torch.unsqueeze(feature, 0)
-        attention_weights = attention_net(feature)
-        # video_feature = torch.sum(torch.bmm(attention_weights.transpose(1, 2), feature), dim=1)
-
-        weighted_features = torch.mul(attention_weights, feature)
-        video_feature = torch.mean(weighted_features, dim=1)
-
-        video_features = torch.unsqueeze(video_feature, 0)
-        norm = video_features.norm(dim=-1, keepdim=True)
-        video_features = video_features / norm
-        res.append(video_features)
-    # 移除多余的维度
-    res = [x.squeeze() for x in res]
-    # 堆叠张量
-    res = torch.stack(res)
-    return res
+    attention_weights = attention_net(attention_feature)
+    weighted_features = torch.mul(attention_weights, image_features)
+    return torch.mean(weighted_features, dim=1)
 
 def promptlearner_Fuc(prompt_learner, image_feature, clip_model):
     prompt_learner.eval()
     logits = []
     prompts = prompt_learner(image_feature)
     for pts_i, imf_i in zip(prompts, image_feature):
-        text_features = clip_model.text_encoder(pts_i, prompt_learner.tokenized_prompts)
+        text_features = clip_model.module.text_encoder(pts_i, prompt_learner.tokenized_prompts)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-        l_i = (clip_model.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
+        l_i = (clip_model.module.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
         logits.append(l_i)
     logits = torch.stack(logits)
     return logits
