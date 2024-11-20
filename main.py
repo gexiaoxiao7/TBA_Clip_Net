@@ -44,7 +44,7 @@ def parse_option():
     parser.add_argument('--lp', type=int)
     parser.add_argument('--only_label', type=int)
     parser.add_argument('--label_smooth', type=int)
-    parser.add_argument("--local_rank", type=int, default=-1, help='local rank for DistributedDataParallel')
+    parser.add_argument("--local_rank", type=int, default=0, help='local rank for DistributedDataParallel')
     args = parser.parse_args()
     config = get_config(args)
     return args, config
@@ -172,6 +172,10 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
         clip_logits = 100. * test_features @ clip_weights.T if config.TRAIN.LP == 0 else promptlearner_Fuc(
             prompt_learner, test_features, clip_model)
         tip_logits =  clip_logits + cache_logits * alpha
+        # logger.info("tip_logits shape:{}".format(tip_logits.shape))
+        # logger.info(f"tip_logits:{tip_logits}")
+        # logger.info("test_labels shape:{}".format(test_labels.shape))
+        # logger.info(f"test_labels:{test_labels}")
         acc1, acc3 ,acc5, auc, f1 = validate(tip_logits, test_labels)
         print("**** Tip-Adapter-F's test accuracy: {:.2f}. auc:{:.2f}****\n".format(acc1,auc))
         if acc1 >= best_acc:
@@ -324,14 +328,14 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
     torch.save(attention_net.module.state_dict() if hasattr(attention_net, 'module') else attention_net.state_dict(), model_path)
 
 @torch.no_grad()
-def validate(output, label, plot = False, config = None):
+def validate(output, label, plot = False):
     acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(), AverageMeter()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     label = label.clone().detach().to(device)
     all_preds = []
     all_labels = []
     all_probs = []
-    for idx, batch_data in enumerate(output):
+    for idx, similarity in enumerate(output):
         cur_label = label[idx]
         value1, indices_1 = similarity.topk(1, dim=-1)
         value3, indices_3 = similarity.topk(3, dim=-1)
@@ -487,6 +491,8 @@ if __name__ == '__main__':
     torch.distributed.barrier(device_ids=[args.local_rank])
 
     # logger
+    if not os.path.exists('train_output'):
+        os.makedirs('train_output')
     logger = create_logger(output_dir='train_output', dist_rank=dist.get_rank(), name=f"{config.MODEL.ARCH}")
     logger.info(config)
 
@@ -502,7 +508,5 @@ if __name__ == '__main__':
     if dist.get_rank() == 0:
         logger.info(config)
         shutil.copy(args.config, config.OUTPUT)
-
-
 
     main(config)
