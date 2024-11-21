@@ -205,7 +205,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
             f'Tip-Adapter-F,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc3:.3f},{acc5:.3f},{auc:.3f},{f1:.3f},{config.DATA.DATASET},'
             f'{config.DATA.SHOTS} ,{str(config.TEXT_PROMPT.N_CTX_PRE) + " " + str(config.TEXT_PROMPT.N_CTX_POST) },{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}\n')
 
-def train_lp(clip_model,device,config,train_loader,class_names,attention_net,logger):
+def train_lp(clip_model,device,config,train_loader,class_names,attention_net,logger,test_features, attention_test_feature,test_labels ):
     if config.TEMPORAL_POOLING == 'attention':
         attention_net.load_state_dict(
             torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "attention_model.pth"))
@@ -219,7 +219,6 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net,log
     criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
     for train_idx in range(config.TRAIN.EPOCHS):
         # Train
-        b = config.TRAIN.BATCH_SIZE
         prompt_learner.train()
         loss_list = []
         print('Train Epoch: {:} / {:}'.format(train_idx, config.TRAIN.EPOCHS))
@@ -232,15 +231,14 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net,log
                 _, image_features, _,attention_format = clip_model(images)
                 if config.TEMPORAL_POOLING == 'attention':
                     attention_net.eval()
-                    attention_weights = attention_net(attention_format)
-                    weighted_features = torch.mul(attention_weights, image_features)
-                    image_features = torch.mean(weighted_features, dim=1)
+                    image_features = attention_Fuc(attention_net, attention_format, image_features)
                 else:
                     image_features /= image_features.norm(dim=-1, keepdim=True)
             logits = []
             prompts = prompt_learner(image_features)
             for pts_i, imf_i in zip(prompts, image_features):
                 text_features = clip_model.module.text_encoder(pts_i, prompt_learner.module.tokenized_prompts)
+                # text_features = clip_model.module.text_encoder(pts_i, prompt_learner.tokenized_prompts)
                 text_features = text_features / text_features.norm(dim=-1, keepdim=True)
                 l_i = (clip_model.module.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
                 logits.append(l_i)
@@ -253,9 +251,7 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net,log
 
             optimizer.zero_grad()
             loss.backward()
-            prompt_learner.float()
             optimizer.step()
-            prompt_learner.half()
             scheduler.step()
         torch.cuda.synchronize()
         current_lr = scheduler.get_last_lr()[0]
@@ -263,8 +259,18 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net,log
 
     model_path = config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "prompt_learner.pth"
     torch.save(prompt_learner.module.state_dict() if hasattr(prompt_learner, 'module') else prompt_learner.state_dict(), model_path)
+    # torch.save(prompt_learner.state_dict() ,model_path)
 
-def train_attention(clip_model,device,config,train_loader,clip_weights):
+    # Eval
+    video_feature = attention_Fuc(attention_net, attention_test_feature, test_features)
+    logits = promptlearner_Fuc(prompt_learner, video_feature, clip_model)
+    test_labels = test_labels.to(logits.device)
+    acc1, acc3, acc5, auc, f1 = validate(logits, test_labels)
+    logger.info(
+        "**** Test accuracy1: {:.2f}. , accuracy3: {:.2f},accuracy5: {:.2f}. auc: {:.2f}, f1: {:.2f}****\n".format(
+            acc1, acc3, acc5, auc, f1))
+
+def train_attention(clip_model,device,config,train_loader,clip_weights,logger,test_features, attention_test_feature,test_labels):
     attention_net = FSATransformerEncoder(dim=clip_model.module.model.visual.output_dim, depth=6,
                                       heads=1, dim_head=64,
                                       mlp_dim=clip_model.module.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
@@ -289,17 +295,8 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
             images = batch_data['data']
             images = torch.stack(images)
             images = torch.transpose(images, 0, 1)
-            # images = batch_data['data']
             label_id = batch_data['label']
             with torch.no_grad():
-                # image_input = []
-                # for image in images:
-                #     image = image.cpu().numpy()
-                #     image_input.append(image)
-                # images = [item for sublist in image_input for item in sublist]
-
-                # input:  b, n_frame, c, high, weight
-                # output: b, n_frame, feature_dim
                 _,image_features,_,image_features_attention = clip_model(images)
             attention_weights = attention_net(image_features_attention)
 
@@ -321,11 +318,22 @@ def train_attention(clip_model,device,config,train_loader,clip_weights):
             scheduler.step()
 
         torch.cuda.synchronize()
+
         current_lr = scheduler.get_last_lr()[0]
         print('LR: {:.6f}, Loss: {:.4f}'.format(current_lr, sum(loss_list) / len(loss_list)))
 
     model_path = config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "attention_model.pth"
     torch.save(attention_net.module.state_dict() if hasattr(attention_net, 'module') else attention_net.state_dict(), model_path)
+
+    # Eval
+    video_features = attention_Fuc(attention_net, attention_test_feature, test_features)
+    clip_logits = (100. * video_features @ clip_weights.T).softmax(dim=-1)
+    test_labels = test_labels.to(clip_logits.device)
+    acc1, acc3, acc5, auc, f1 = validate(clip_logits, test_labels)
+    logger.info(
+        "**** Test accuracy1: {:.2f}. , accuracy3: {:.2f},accuracy5: {:.2f}. auc: {:.2f}, f1: {:.2f}****\n".format(
+            acc1, acc3, acc5, auc, f1))
+
 
 @torch.no_grad()
 def validate(output, label, plot = False):
@@ -439,16 +447,16 @@ def main(config):
         logger.info(f"process Time cost: {int(time.time()) - pre_time} seconds.")
         pre_time_seconds = int(time.time())
         # USE adapter-clip
-        logger.info("\nGetting textual features as CLIP's classifier.")
+        logger.info(" Getting textual features as CLIP's classifier.")
         clip_weights = clip_classifier(class_names, model, config,device)
         # Construct the cache model by few-shot training set
-        logger.info("\nConstructing cache model by few-shot visual features and labels.")
+        logger.info(" Constructing cache model by few-shot visual features and labels.")
         cache_keys, cache_values = build_cache_model(config, model, train_load_cache, logger)
         # Pre-load val features
-        logger.info("\nLoading visual features and labels from val set.")
+        logger.info(" Loading visual features and labels from val set.")
         val_features, val_labels, attention_val_feature = pre_load_features(config, "val", model, val_loader)
         # Pre-load test features
-        logger.info("\nLoading visual features and labels from test set.")
+        logger.info(" Loading visual features and labels from test set.")
         test_features, test_labels, attention_test_feature = pre_load_features(config, "test", model, test_loader)
         #load_attention
         attention_net = FSATransformerEncoder(dim=model.module.model.visual.output_dim, depth=6,
@@ -456,14 +464,14 @@ def main(config):
                                           mlp_dim=model.module.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
                                           nh=1, nw=1,
                                           dropout=0.1).to(device).to(torch.half)
-        logger.info("\nTraining attention Net.")
+        logger.info(" Training attention Net.")
         if config.MODEL.LOAD_ATTENTION == 0 and config.TEMPORAL_POOLING == 'attention' and config.TRAIN.ZS == 0:
-            train_attention(model, device ,config, train_load_F, clip_weights)
+            train_attention(model, device ,config, train_load_F, clip_weights,logger,test_features,attention_test_feature,test_labels)
         # use prompt_learner
-        logger.info("\nTraining Prompt Learner.")
+        logger.info(" Training Prompt Learner.")
         prompt_learner = tbaclip.PromptLearner(config, class_names, model.module.model, device, logger).to(torch.half)
         if config.MODEL.LOAD_LP == 0 and config.TRAIN.LP == 1 and config.TRAIN.ZS == 0 :
-            train_lp(model, device, config, train_load_a, class_names,attention_net,logger)
+            train_lp(model, device, config, train_load_a, class_names,attention_net,logger,test_features,attention_test_feature,test_labels)
         # ------------------------------------------ Tip-Adapter ------------------------------------------
         if config.TRAIN.ZS == 1:
             run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels,clip_weights)
@@ -480,14 +488,14 @@ if __name__ == '__main__':
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = int(os.environ["RANK"])
         world_size = int(os.environ['WORLD_SIZE'])
-        print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
     else:
         rank = -1
         world_size = -1
 
     torch.cuda.set_device(args.local_rank)
-    # torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank) #for linux
-    torch.distributed.init_process_group(backend='gloo', init_method='env://', world_size=world_size, rank=rank)
+
+    torch.distributed.init_process_group(backend='nccl', init_method='env://' ,world_size=world_size, rank=rank) #for linux
+    # torch.distributed.init_process_group(backend='gloo', init_method='env://', world_size=world_size, rank=rank)
     torch.distributed.barrier(device_ids=[args.local_rank])
 
     # logger
@@ -495,7 +503,7 @@ if __name__ == '__main__':
         os.makedirs('train_output')
     logger = create_logger(output_dir='train_output', dist_rank=dist.get_rank(), name=f"{config.MODEL.ARCH}")
     logger.info(config)
-
+    logger.info(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
     seed = dist.get_rank()
     torch.manual_seed(seed)
     np.random.seed(seed)

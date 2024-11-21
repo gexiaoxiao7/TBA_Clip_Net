@@ -211,7 +211,9 @@ def attention_Fuc(attention_net, attention_feature, image_features):
     attention_net.eval()
     attention_weights = attention_net(attention_feature)
     weighted_features = torch.mul(attention_weights, image_features)
-    return torch.mean(weighted_features, dim=1)
+    video_features = torch.mean(weighted_features, dim=1)
+    video_features = video_features / video_features.norm(dim=-1, keepdim=True)
+    return video_features
 
 def promptlearner_Fuc(prompt_learner, image_feature, clip_model):
     prompt_learner.eval()
