@@ -134,7 +134,8 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
 
-def cls_acc(output, label, plot = False, config = None):
+@torch.no_grad()
+def validate(output, label, plot = False, config = None):
     acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(), AverageMeter()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     label = label.clone().detach().to(device)
@@ -177,10 +178,6 @@ def cls_acc(output, label, plot = False, config = None):
     all_labels = np.array(all_labels)
     all_preds = np.array(all_preds)
     all_probs = np.array(all_probs)
-    # print("labels shape:",end="")
-    # print(all_labels)
-    # print("probs shape:",end="")
-    # print(all_probs)
     auc = roc_auc_score(all_labels, all_probs, multi_class='ovr')
     f1 = f1_score(all_labels, all_preds, average='macro')
     if plot:
@@ -197,10 +194,6 @@ def cls_acc(output, label, plot = False, config = None):
         # Show all ticks
         ax.set_xticks(np.arange(len(labels)))
         ax.set_yticks(np.arange(len(labels)))
-        # ax.set_xticklabels(labels, rotation=45, fontsize='medium')  # Increase font size
-        # ax.set_yticklabels(labels, fontsize='medium')  # Increase font size
-
-        # Loop over data dimensions and create text annotations
         for i in range(cm.shape[0]):
             for j in range(cm.shape[1]):
                 ax.text(j, i, format(cm[i, j], '.2f'),  # Show 2 decimal places
@@ -233,7 +226,7 @@ def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, 
                 cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
                 clip_logits = 100. * features @ clip_weights.T
                 tip_logits = clip_logits + cache_logits * alpha
-                acc1, acc3 ,acc5, auc, f1 = cls_acc(tip_logits, labels, False)
+                acc1, acc3 ,acc5, auc, f1 = validate(tip_logits, labels, plot = False, config=config)
 
                 if acc1 > best_acc:
                     print("New best setting, beta: {:.2f}, alpha: {:.2f}; accuracy: {:.2f}".format(beta, alpha, acc1))

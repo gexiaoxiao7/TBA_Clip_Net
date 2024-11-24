@@ -17,7 +17,7 @@ from dataSets.build import build_dataloader
 from utils.logger import create_logger
 from utils.tools import AverageMeter, clip_classifier, build_cache_model, pre_load_features, split_dataset, \
     attention_Fuc, promptlearner_Fuc, classes, visual
-from utils.tools import cls_acc, search_hp
+from utils.tools import  search_hp
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from timm.loss import LabelSmoothingCrossEntropy
@@ -48,8 +48,8 @@ def parse_option():
 
 
 def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, test_features, test_labels, clip_weights):
-    test_features = test_features
-    val_features = val_features
+    test_features = test_features.squeeze(1)
+    val_features = val_features.squeeze(1)
     logger.info("\n-------- Searching hyperparameters on the val set. --------")
     # Zero-shot CLIP
     clip_logits = (100. * val_features @ clip_weights.T).softmax(dim=-1)
@@ -64,7 +64,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
     cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
 
     tip_logits = clip_logits + cache_logits * alpha
-    acc1,acc3,acc5, auc, f1 = cls_acc(tip_logits, val_labels)
+    acc1,acc3,acc5, auc, f1 = validate(tip_logits, val_labels)
 
     logger.info("**** Tip-Adapter's val accuracy1: {:.2f}. accuracy3: {:.2f} accuracy5: {:.2f}, auc: {:.2f}, f1: {:.2f}****\n".format(acc1,acc3,acc5,auc,f1))
 
@@ -76,7 +76,7 @@ def run_tip_adapter(config, cache_keys, cache_values, val_features, val_labels, 
 
     # Zero-shot CLIP
     clip_logits = (100. * test_features @ clip_weights.T).softmax(dim=-1)
-    acc1, acc3 ,acc5, auc, f1 = cls_acc(clip_logits, test_labels)
+    acc1, acc3 ,acc5, auc, f1 = validate(clip_logits, test_labels)
     logger.info("\n**** Zero-shot CLIP's test accuracy1: {:.2f}. accuracy3:{:.2f} accuracy5:{:.2f} auc:{:.2f} f1:{:.2f}****\n".format(acc1,acc3,acc5,auc,f1))
     with open(config.OUTPUT, 'a') as f:
         f.write(
@@ -105,9 +105,9 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
         prompt_learner.load_state_dict(
             torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "prompt_learner.pth"))
 
-    test_features = test_features if config.TEMPORAL_POOLING != 'attention' else attention_Fuc(attention_net,
+    test_features = test_features.squeeze(1) if config.TEMPORAL_POOLING != 'attention' else attention_Fuc(attention_net,
                                                                                                attention_test_feature, test_features)
-    val_features = val_features if config.TEMPORAL_POOLING != 'attention' else attention_Fuc(attention_net,attention_val_feature,
+    val_features = val_features.squeeze(1) if config.TEMPORAL_POOLING != 'attention' else attention_Fuc(attention_net,attention_val_feature,
                                                                                              val_features)
     # Enable the cached keys to be learnable
 
@@ -127,59 +127,51 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
         adapter.train()
         loss_list = []
         logger.info('Train Epoch: {:} / {:}'.format(train_idx, config.TRAIN.EPOCHS))
-        for train_idx in range(config.TRAIN.EPOCHS):
-            # Train
-            b = config.TRAIN.BATCH_SIZE
-            adapter.train()
-            loss_list = []
-            logger.info('Train Epoch: {:} / {:}'.format(train_idx, config.TRAIN.EPOCHS))
-            for idx, batch_data in enumerate(tqdm(train_loader_F)):
-                images = batch_data['data']
-                images = torch.stack(images)
-                images = torch.transpose(images, 0, 1)
-                label_id = batch_data['label']
-                with torch.no_grad():
-                    clip_logits, image_features, _, attention_format = clip_model(images)
-                    if config.TEMPORAL_POOLING == 'attention':
-                        attention_net.eval()
-                        attention_weights = attention_net(attention_format)
-                        weighted_features = torch.mul(attention_weights, image_features)
-                        image_features = torch.mean(weighted_features, dim=1)
-                    else:
-                        image_features /= image_features.norm(dim=-1, keepdim=True)
-                    if config.TRAIN.LP == 1:
-                        clip_logits = promptlearner_Fuc(prompt_learner, image_features, clip_model)
-                affinity = adapter(image_features)
-                cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
-                tip_logits = clip_logits + cache_logits * alpha
+        for idx, batch_data in enumerate(tqdm(train_loader_F)):
+            images = batch_data['data']
+            images = torch.stack(images)
+            images = torch.transpose(images, 0, 1)
+            label_id = batch_data['label']
+            with torch.no_grad():
+                clip_logits, image_features, _, attention_format = clip_model(images)
+                if config.TEMPORAL_POOLING == 'attention':
+                    image_features = attention_Fuc(attention_net, attention_format, image_features)
+                else:
+                    image_features /= image_features.norm(dim=-1, keepdim=True)
+                if config.TRAIN.LP == 1:
+                    clip_logits = promptlearner_Fuc(prompt_learner, image_features, clip_model)
+            affinity = adapter(image_features)
+            cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
+            tip_logits = clip_logits + cache_logits * alpha
 
-                # 用交叉熵损失函数
+            # 用交叉熵损失函数
 
-                label_id = label_id.to(tip_logits.device)
-                loss = criterion(tip_logits, label_id)
-                loss_list.append(loss.item())
+            label_id = label_id.to(tip_logits.device)
+            loss = criterion(tip_logits, label_id)
+            loss_list.append(loss.item())
 
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                scheduler.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            scheduler.step()
+
 
         current_lr = scheduler.get_last_lr()[0]
         logger.info('LR: {:.6f}, Loss: {:.4f}'.format(current_lr, sum(loss_list) / len(loss_list)))
 
-        # Eval
-        adapter.eval()
-        affinity = adapter(test_features)
-        cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
-        clip_logits = 100. * test_features @ clip_weights.T if config.TRAIN.LP == 0 else promptlearner_Fuc(
-            prompt_learner, test_features, clip_model)
-        tip_logits =  clip_logits + cache_logits * alpha
-        acc1, acc3 ,acc5, auc, f1 = validate(tip_logits, test_labels)
-        logger.info("**** Tip-Adapter-F's test accuracy: {:.2f}****\n".format(acc1))
-        if acc1 >= best_acc:
-            best_acc = acc1
-            best_epoch = train_idx
-            torch.save(adapter.weight, config.TIP_ADAPTER.CACHE_DIR + "/best_F_" + str(config.DATA.SHOTS) + "shots.pt")
+    # Eval
+    adapter.eval()
+    affinity = adapter(test_features)
+    cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
+    clip_logits = 100. * test_features @ clip_weights.T if config.TRAIN.LP == 0 else promptlearner_Fuc(
+        prompt_learner, test_features, clip_model)
+    tip_logits =  clip_logits + cache_logits * alpha
+    acc1, acc3 ,acc5, auc, f1 = validate(tip_logits, test_labels)
+    logger.info("**** Tip-Adapter-F's test accuracy: {:.2f}****\n".format(acc1))
+    if acc1 >= best_acc:
+        best_acc = acc1
+        best_epoch = train_idx
+        torch.save(adapter.weight, config.TIP_ADAPTER.CACHE_DIR + "/best_F_" + str(config.DATA.SHOTS) + "shots.pt")
 
     adapter.weight = torch.load(config.TIP_ADAPTER.CACHE_DIR + "/best_F_" + str(config.DATA.SHOTS) + "shots.pt")
     logger.info(f"**** After fine-tuning, Tip-Adapter-F's best test accuracy: {best_acc:.2f}, at epoch: {best_epoch}. ****\n")
@@ -196,7 +188,7 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
     cache_logits = ((-1) * (best_beta - best_beta * affinity)).exp() @ cache_values.to(affinity.device)
 
     tip_logits = clip_logits + cache_logits * best_alpha
-    acc1,acc3,acc5, auc, f1 = validate(tip_logits, test_labels, plot= True,config= config)
+    acc1,acc3,acc5, auc, f1 = validate(tip_logits, test_labels, plot= True)
     logger.info("**** Tip-Adapter-F's test accuracy1: {:.2f}. , accuracy3: {:.2f},accuracy5: {:.2f}. auc: {:.2f}, f1: {:.2f}****\n".format(max(best_acc, acc1),acc3,acc5, auc, f1))
     with open(config.OUTPUT, 'a') as f:
         f.write(
