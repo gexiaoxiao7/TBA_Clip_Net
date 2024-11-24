@@ -188,30 +188,27 @@ def build_dataloader(config,logger):
         test_loader = None
     logger.info("test_data_finished!")
 
-    if config.TRAIN.IF_TEST == 0:
-        train_chache_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,shot=config.DATA.CACHE_SIZE,type='train_cache')
-        sampler_test = SubsetRandomSampler(np.arange(len(train_chache_data)))
-        train_loader_cache = DataLoader(train_chache_data, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler_test,
-                                 num_workers=16, pin_memory=True, drop_last=True)
 
-        train_data_F = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,
-                                         shot=config.DATA.SHOTS, type='train_F')
-        sampler_test = SubsetRandomSampler(np.arange(len(train_data_F)))
-        train_load_F = DataLoader(train_data_F, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler_test,
-                                 num_workers=16, pin_memory=True, drop_last=True)
-        val_data, _ = split_dataset(train_data_F)
-        sampler_test = SubsetRandomSampler(np.arange(len(val_data)))
-        val_loader = DataLoader(val_data, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler_test,
-                                 num_workers=16, pin_memory=True, drop_last=True)
-        logger.info("val_data finished!")
+    train_chache_data = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,shot=config.DATA.CACHE_SIZE,type='train_cache')
+    sampler_test = SubsetRandomSampler(np.arange(len(train_chache_data)))
+    train_loader_cache = DataLoader(train_chache_data, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler_test,
+                             num_workers=16, pin_memory=True, drop_last=True)
 
-        # Add new train_data_a and train_load_a
-        train_data_a = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,
-                                         shot=config.DATA.SHOTS, type='train_a')  # Change the type to 'train_a'
-        sampler_test = SubsetRandomSampler(np.arange(len(train_data_a)))
-        train_load_a = DataLoader(train_data_a, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler_test,
-                                 num_workers=16, pin_memory=True, drop_last=True)
-        return train_chache_data, val_data, test_data,train_data_F,train_data_a, train_loader_cache, val_loader, test_loader,train_load_F, train_load_a
-    else:
-        return (None, None, test_data,None, None,
-                None, None, test_loader,None, None)
+    train_data_F = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,
+                                     shot=config.DATA.SHOTS, type='train_F')
+    sampler_test = SubsetRandomSampler(np.arange(len(train_data_F)))
+    train_load_F = DataLoader(train_data_F, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler_test,
+                             num_workers=16, pin_memory=True, drop_last=True)
+    val_data, _ = split_dataset(train_data_F)
+    sampler_test = SubsetRandomSampler(np.arange(len(val_data)))
+    val_loader = DataLoader(val_data, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler_test,
+                             num_workers=16, pin_memory=True, drop_last=True)
+    logger.info("val_data finished!")
+
+    # Add new train_data_a and train_load_a
+    train_data_a = VideoDataset(config, preprocess=preprocess, device=device, ann_file=config.DATA.TRAIN_FILE,
+                                     shot=config.DATA.SHOTS, type='train_a')  # Change the type to 'train_a'
+    sampler_test = SubsetRandomSampler(np.arange(len(train_data_a)))
+    train_load_a = DataLoader(train_data_a, batch_size=config.TRAIN.BATCH_SIZE, sampler=sampler_test,
+                             num_workers=16, pin_memory=True, drop_last=True)
+    return train_chache_data, val_data, test_data,train_data_F,train_data_a, train_loader_cache, val_loader, test_loader,train_load_F, train_load_a

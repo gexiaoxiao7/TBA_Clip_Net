@@ -87,6 +87,7 @@ def build_cache_model(config, clip_model, train_loader_cache,logger):
                 cache_keys.append(torch.cat(train_features, dim=0).unsqueeze(0))
 
         cache_keys = torch.cat(cache_keys, dim=0).mean(dim=0)
+        cache_keys = cache_keys.squeeze(1)
         cache_keys /= cache_keys.norm(dim=-1, keepdim=True)
         cache_keys = cache_keys.permute(1, 0)
         cache_values = F.one_hot(torch.cat(cache_values, dim=0)).half()
@@ -276,16 +277,17 @@ def attention_Fuc(attention_net, attention_feature, image_features):
     attention_net.eval()
     attention_weights = attention_net(attention_feature)
     weighted_features = torch.mul(attention_weights, image_features)
-    return torch.mean(weighted_features, dim=1)
+    video_features = torch.mean(weighted_features, dim=1)
+    return video_features / video_features.norm(dim=-1, keepdim=True)
 
 def promptlearner_Fuc(prompt_learner, image_feature, clip_model):
     prompt_learner.eval()
     logits = []
     prompts = prompt_learner(image_feature)
     for pts_i, imf_i in zip(prompts, image_feature):
-        text_features = clip_model.module.text_encoder(pts_i, prompt_learner.module.tokenized_prompts)
+        text_features = clip_model.text_encoder(pts_i, prompt_learner.tokenized_prompts)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-        l_i = (clip_model.module.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
+        l_i = (clip_model.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
         logits.append(l_i)
     logits = torch.stack(logits)
     return logits

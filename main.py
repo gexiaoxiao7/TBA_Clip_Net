@@ -209,7 +209,7 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net, te
         attention_net.load_state_dict(
             torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "attention_model.pth"))
 
-    prompt_learner = tbaclip.PromptLearner(config, class_names, clip_model.model, device).to(torch.half)
+    prompt_learner = tbaclip.PromptLearner(config, class_names, clip_model.model, device,logger).to(torch.half)
     optimizer = torch.optim.Adam(prompt_learner.parameters(), lr=config.TRAIN.LR, eps=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config.TRAIN.EPOCHS * len(train_loader))
     criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
@@ -227,17 +227,16 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net, te
             with torch.no_grad():
                 _, image_features, _,attention_format = clip_model(images)
                 if config.TEMPORAL_POOLING == 'attention':
-                    attention_net.eval()
                     image_features = attention_Fuc(attention_net, attention_format, image_features)
                 else:
                     image_features /= image_features.norm(dim=-1, keepdim=True)
             logits = []
             prompts = prompt_learner(image_features)
             for pts_i, imf_i in zip(prompts, image_features):
-                text_features = clip_model.module.text_encoder(pts_i, prompt_learner.module.tokenized_prompts)
+                text_features = clip_model.text_encoder(pts_i, prompt_learner.tokenized_prompts)
                 # text_features = clip_model.module.text_encoder(pts_i, prompt_learner.tokenized_prompts)
                 text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-                l_i = (clip_model.module.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
+                l_i = (clip_model.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
                 logits.append(l_i)
             logits = torch.stack(logits)
             # 修改成label_smooth的损失函数
@@ -259,14 +258,14 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net, te
         torch.save(prompt_learner.state_dict(),
                    config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "prompt_learner.pth")
 
-        # Eval
-        video_feature = attention_Fuc(attention_net, attention_test_feature, test_features)
-        logits = promptlearner_Fuc(prompt_learner, video_feature, clip_model)
-        test_labels = test_labels.to(logits.device)
-        acc1, acc3, acc5, auc, f1 = validate(logits, test_labels)
-        logger.info(
-            "**** Test accuracy1: {:.2f}, accuracy3: {:.2f},accuracy5: {:.2f}. auc: {:.2f}, f1: {:.2f}****\n".format(
-                acc1, acc3, acc5, auc, f1))
+    # Eval
+    video_feature = attention_Fuc(attention_net, attention_test_feature, test_features)
+    logits = promptlearner_Fuc(prompt_learner, video_feature, clip_model)
+    test_labels = test_labels.to(logits.device)
+    acc1, acc3, acc5, auc, f1 = validate(logits, test_labels)
+    logger.info(
+        "**** Test accuracy1: {:.2f}, accuracy3: {:.2f},accuracy5: {:.2f}. auc: {:.2f}, f1: {:.2f}****\n".format(
+            acc1, acc3, acc5, auc, f1))
 
 def train_attention(clip_model,device,config,train_loader,clip_weights,test_features, attention_test_feature,test_labels):
     attention_net = FSATransformerEncoder(dim=clip_model.model.visual.output_dim, depth=6,
@@ -321,16 +320,16 @@ def train_attention(clip_model,device,config,train_loader,clip_weights,test_feat
 
         torch.save(attention_net.state_dict(), config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) +"attention_model.pth")
 
-        # Eval
-        video_features = attention_Fuc(attention_net, attention_test_feature, test_features)
-        clip_logits = (100. * video_features @ clip_weights.T).softmax(dim=-1)
-        test_labels = test_labels.to(clip_logits.device)
-        # logger.info(f"clip_logits shape:{clip_logits.shape}\n clip_logits:{clip_logits}")
-        # logger.info(f"test_labels shape:{test_labels.shape}\n test_labels:{test_labels}")
-        acc1, acc3, acc5, auc, f1 = validate(clip_logits, test_labels)
-        logger.info(
-            "**** Test accuracy1: {:.2f}. , accuracy3: {:.2f},accuracy5: {:.2f}. auc: {:.2f}, f1: {:.2f}****\n".format(
-                acc1, acc3, acc5, auc, f1))
+    # Eval
+    video_features = attention_Fuc(attention_net, attention_test_feature, test_features)
+    clip_logits = (100. * video_features @ clip_weights.T).softmax(dim=-1)
+    test_labels = test_labels.to(clip_logits.device)
+    # logger.info(f"clip_logits shape:{clip_logits.shape}\n clip_logits:{clip_logits}")
+    # logger.info(f"test_labels shape:{test_labels.shape}\n test_labels:{test_labels}")
+    acc1, acc3, acc5, auc, f1 = validate(clip_logits, test_labels)
+    logger.info(
+        "**** Test accuracy1: {:.2f}. , accuracy3: {:.2f},accuracy5: {:.2f}. auc: {:.2f}, f1: {:.2f}****\n".format(
+            acc1, acc3, acc5, auc, f1))
 
 @torch.no_grad()
 def validate(output, label, plot = False):
@@ -422,7 +421,7 @@ def main(config):
     class_names = [class_name for i, class_name in classes(config)]
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = tbaclip.returnCLIP(config, class_names, device)
+    model = tbaclip.returnCLIP(config, class_names, device,logger)
     # USE adapter-clip
     logger.info("Getting textual features as CLIP's classifier.")
     clip_weights = clip_classifier(class_names, model, config,device)
