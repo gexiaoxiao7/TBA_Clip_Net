@@ -462,7 +462,7 @@ if __name__ == '__main__':
     args, config = parse_option()
     if not os.path.exists('train_output'):
         os.makedirs('train_output')
-    logger = create_logger(output_dir='train_output', dist_rank=dist.get_rank(), name=f"{config.MODEL.ARCH}")
+    logger = create_logger(output_dir='train_output', dist_rank=0, name=f"{config.MODEL.ARCH}")
     logger.info(config)
 
     main(config)
