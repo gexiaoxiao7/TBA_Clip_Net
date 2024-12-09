@@ -8,6 +8,9 @@
 *.sh
 /test
 /caches
+/train_output/log_rank0.txt
 *.csv
 *.png
 *.jpg
+*.zip
+input

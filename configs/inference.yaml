@@ -1,0 +1,14 @@
+# input video or videos
+input: 'input'
+#output video or videos
+output: 'output'
+# path of prompt_learner.pth
+prompt_learner: ''
+# path of attention_model.pth
+attention_model: ''
+# path of cache_keys.pt
+cache_keys: ''
+# path of cache_values.pt
+cache_values: ''
+# path of tip_adapter.pth
+tip_adapter: ''
