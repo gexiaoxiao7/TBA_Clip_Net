@@ -46,7 +46,7 @@ def clip_classifier(classnames,clip_model,config,device):
         else:
             prompts = classnames
         x = [clip.tokenize(prompt).to(device) for prompt in prompts]
-        clip_weights = [clip_model.module.model.encode_text(i) for i in x]
+        clip_weights = [clip_model.model.encode_text(i) for i in x]
         # x = torch.cat([clip.tokenize(prompt) for prompt in prompts]).to(device)
         clip_weights = torch.stack(clip_weights)
         clip_weights = clip_weights.squeeze(dim=1)
@@ -67,16 +67,8 @@ def build_cache_model(config, clip_model, train_loader_cache,logger):
             for augment_idx in range(config.TIP_ADAPTER.AUGMENT_EPOCH):
                 train_features = []
 
-                print('Augment Epoch: {:} / {:}'.format(augment_idx, config.TIP_ADAPTER.AUGMENT_EPOCH))
-
-
-                for idx, batch_data in enumerate(train_loader_cache):
-
-                    if idx % 10 == 0:
-                        logger.info(
-                            f'Process: [{idx}/{len(train_loader_cache)}]\t'
-                        )
-
+                logger.info('Augment Epoch: {:} / {:}'.format(augment_idx, config.TIP_ADAPTER.AUGMENT_EPOCH))
+                for idx, batch_data in enumerate(tqdm(train_loader_cache)):
                     images = batch_data['data']
                     images = torch.stack(images)
                     images = torch.transpose(images, 0, 1)
@@ -92,13 +84,10 @@ def build_cache_model(config, clip_model, train_loader_cache,logger):
                     if augment_idx == 0:
                         target = label_id
                         cache_values.append(target)
-                torch.cuda.synchronize()
                 cache_keys.append(torch.cat(train_features, dim=0).unsqueeze(0))
 
         cache_keys = torch.cat(cache_keys, dim=0).mean(dim=0)
-
         cache_keys = cache_keys.squeeze(1)
-
         cache_keys /= cache_keys.norm(dim=-1, keepdim=True)
         cache_keys = cache_keys.permute(1, 0)
         cache_values = F.one_hot(torch.cat(cache_values, dim=0)).half()
@@ -129,8 +118,8 @@ def pre_load_features(config, split, clip_model, loader):
                 labels.append(label_id)
                 attention_feature.append(attention_format_feature)
 
+        torch.cuda.synchronize()
         features, labels, attention_feature = torch.cat(features), torch.cat(labels), torch.cat(attention_feature)
-
         torch.save(features, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_f.pt")
         torch.save(labels, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_l.pt")
         torch.save(attention_feature, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_a.pt")
@@ -144,6 +133,76 @@ def pre_load_features(config, split, clip_model, loader):
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
+
+@torch.no_grad()
+def validate(output, label, plot = False, config = None):
+    acc1_meter, acc5_meter,acc3_meter = AverageMeter(), AverageMeter(), AverageMeter()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    label = label.clone().detach().to(device)
+    all_preds = []
+    all_labels = []
+    all_probs = []
+    for idx, similarity in enumerate(output):
+        cur_label = label[idx]
+        value1, indices_1 = similarity.topk(1, dim=-1)
+        value3, indices_3 = similarity.topk(3, dim=-1)
+        value5, indices_5 = similarity.topk(5, dim=-1)
+        acc1, acc3 ,acc5 = 0, 0,0
+        for i in range(1): # batch_size
+            if indices_1[i] == cur_label:
+                acc1 += 1
+            if cur_label in indices_3:
+                acc3 += 1
+            if cur_label in indices_5:
+                acc5 += 1
+        acc1_meter.update(float(acc1) * 100,1)
+        acc3_meter.update(float(acc3) * 100, 1)
+        acc5_meter.update(float(acc5) * 100,1)
+        all_preds.append(indices_1.cpu().numpy())
+        all_labels.append(cur_label.cpu().numpy())
+        probs = similarity.softmax(dim=-1).cpu().detach().numpy()
+        if len(probs.shape) > 1:  # 如果probs有多个维度
+            probs /= probs.sum(axis=1, keepdims=True)  # 归一化概率，使其和为1
+        else:  # 如果probs只有一个维度
+            probs /= probs.sum()  # 归一化概率，使其和为1
+        if not np.isclose(probs.sum(), 1):
+            probs = np.clip(probs, 0, 1)
+            min_index = np.argmin(probs)
+            sum = 0
+            for i,num in enumerate(probs):
+                if i != min_index:
+                    sum += num
+            probs[min_index] = 1 - sum
+        all_probs.append(probs)
+    # AUC and F1
+    all_labels = np.array(all_labels)
+    all_preds = np.array(all_preds)
+    all_probs = np.array(all_probs)
+    auc = roc_auc_score(all_labels, all_probs, multi_class='ovr')
+    f1 = f1_score(all_labels, all_preds, average='macro')
+    if plot:
+        cls = classes(config)
+        labels = [sublist[1] for sublist in cls]
+
+        cm = confusion_matrix(np.array(all_labels), np.array(all_preds))
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]  # Convert to percentages
+
+        fig, ax = plt.subplots(figsize=(10, 10))  # Increase figure size
+        im = ax.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+        ax.figure.colorbar(im, ax=ax, shrink=0.7)  # Adjust the length of colorbar
+
+        # Show all ticks
+        ax.set_xticks(np.arange(len(labels)))
+        ax.set_yticks(np.arange(len(labels)))
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                ax.text(j, i, format(cm[i, j], '.2f'),  # Show 2 decimal places
+                        ha='center', va='center', color='black')
+
+        fig.tight_layout()  # Increase margin
+        plt.savefig('confusion_matrix.png')
+
+    return acc1_meter.avg, acc3_meter.avg, acc5_meter.avg, auc, f1
 
 
 def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, adapter=None):
@@ -167,7 +226,7 @@ def search_hp(config, cache_keys, cache_values, features, labels, clip_weights, 
                 cache_logits = ((-1) * (beta - beta * affinity)).exp() @ cache_values.to(affinity.device)
                 clip_logits = 100. * features @ clip_weights.T
                 tip_logits = clip_logits + cache_logits * alpha
-                acc1, acc3 ,acc5, auc, f1 = cls_acc(tip_logits, labels, False)
+                acc1, acc3 ,acc5, auc, f1 = validate(tip_logits, labels, plot = False, config=config)
 
                 if acc1 > best_acc:
                     print("New best setting, beta: {:.2f}, alpha: {:.2f}; accuracy: {:.2f}".format(beta, alpha, acc1))
@@ -212,17 +271,16 @@ def attention_Fuc(attention_net, attention_feature, image_features):
     attention_weights = attention_net(attention_feature)
     weighted_features = torch.mul(attention_weights, image_features)
     video_features = torch.mean(weighted_features, dim=1)
-    video_features = video_features / video_features.norm(dim=-1, keepdim=True)
-    return video_features
+    return video_features / video_features.norm(dim=-1, keepdim=True)
 
 def promptlearner_Fuc(prompt_learner, image_feature, clip_model):
     prompt_learner.eval()
     logits = []
     prompts = prompt_learner(image_feature)
     for pts_i, imf_i in zip(prompts, image_feature):
-        text_features = clip_model.module.text_encoder(pts_i, prompt_learner.tokenized_prompts)
+        text_features = clip_model.text_encoder(pts_i, prompt_learner.tokenized_prompts)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-        l_i = (clip_model.module.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
+        l_i = (clip_model.logit_scale.exp() * imf_i @ text_features.t()).softmax(dim=-1)
         logits.append(l_i)
     logits = torch.stack(logits)
     return logits

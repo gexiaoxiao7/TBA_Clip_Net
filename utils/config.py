@@ -131,7 +131,6 @@ def update_config(config, args):
     if args.label_smooth is not None:
         config.TRAIN.LABEL_SMOOTH = args.label_smooth
     # set local rank for distributed training
-    config.LOCAL_RANK = args.local_rank
     config.freeze()
 
 def get_config(args):
