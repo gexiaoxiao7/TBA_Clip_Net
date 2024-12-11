@@ -3,12 +3,18 @@ input: 'input'
 #output video or videos
 output: 'output'
 # path of prompt_learner.pth
-prompt_learner: 'caches/8prompt_learner.pth'
+prompt_learner: 'caches/TBAD-8/8prompt_learner.pth'
 # path of attention_model.pth
-attention_model: 'caches/8attention_model.pth'
+attention_model: 'caches/TBAD-8/8attention_model.pth'
 # path of cache_keys.pt
-cache_keys: 'caches/keys_8shots.pt'
+cache_keys: 'caches/TBAD-8/keys_8shots.pt'
 # path of cache_values.pt
-cache_values: 'caches/values_8shots.pt'
+cache_values: 'caches/TBAD-8/values_8shots.pt'
 # path of tip_adapter.pth
-tip_adapter: 'caches/best_F_8shots.pt'
+tip_adapter: 'caches/TBAD-8/best_F_8shots.pt'
+# frames
+num_frames: 16
+# arch model of clip
+arch_clip: 'ViT-L/14@336px'
+# arch of yolo
+arch_yolo: 'Yolo-model/yolov8n.pt'
