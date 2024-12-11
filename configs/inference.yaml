@@ -3,12 +3,12 @@ input: 'input'
 #output video or videos
 output: 'output'
 # path of prompt_learner.pth
-prompt_learner: ''
+prompt_learner: 'caches/8prompt_learner.pth'
 # path of attention_model.pth
-attention_model: ''
+attention_model: 'caches/8attention_model.pth'
 # path of cache_keys.pt
-cache_keys: ''
+cache_keys: 'caches/keys_8shots.pt'
 # path of cache_values.pt
-cache_values: ''
+cache_values: 'caches/values_8shots.pt'
 # path of tip_adapter.pth
-tip_adapter: ''
+tip_adapter: 'caches/best_F_8shots.pt'
