@@ -125,8 +125,6 @@ def update_config(config, args):
         config.DATA.SHOTS = args.shots
     if hasattr(args, 'lp') and args.lp is not None:
         config.TRAIN.LP = args.lp
-    if hasattr(args, 'load_lp') and args.load_lp is not None:
-        config.MODEL.LOAD_LP = args.load_lp
     if hasattr(args, 'only_label') and args.only_label is not None:
         config.TEXT_PROMPT.ONLY_LABEL = args.only_label
     if hasattr(args, 'load_lp') and args.load_lp is not None:
