@@ -29,6 +29,7 @@ _C.MODEL.ARCH = 'ViT-B/32'
 _C.MODEL.YOLO = 'Yolo-model/yolov8n.pt'
 _C.MODEL.LOAD_ATTENTION = 0
 _C.MODEL.LOAD_LP = 0
+_C.MODEL.LOAD_ADAPTER = 0
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------
@@ -112,6 +113,8 @@ def update_config(config, args):
         config.TIP_ADAPTER.LOAD_PRE_FEAT = args.load_pre_feat
     if hasattr(args, 'load_attention') and args.load_attention is not None:
         config.MODEL.LOAD_ATTENTION = args.load_attention
+    if hasattr(args, 'load_adapter') and args.load_adapter is not None:
+        config.MODEL.LOAD_ADAPTER = args.load_adapter
     if hasattr(args, 'output') and args.output is not None:
         config.OUTPUT = args.output
     if hasattr(args, 'zs') and args.zs is not None:

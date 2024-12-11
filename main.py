@@ -34,6 +34,7 @@ def parse_option():
     parser.add_argument('--output', type=str)
     parser.add_argument('--load_cache', type=int)
     parser.add_argument('--load_attention', type=int)
+    parser.add_argument('--load_adapter', type=int)
     parser.add_argument('--load_pre_feat', type=int)
     parser.add_argument('--load_lp', type=int)
     parser.add_argument('--zs', type=int)
@@ -113,6 +114,8 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
 
 
     adapter = nn.Linear(cache_keys.shape[0], cache_keys.shape[1], bias=False).to(clip_model.dtype).cuda()
+
+
     adapter.weight = nn.Parameter(cache_keys.t())
 
     optimizer = torch.optim.AdamW(adapter.parameters(), lr=config.TRAIN.LR, eps=1e-4)
@@ -193,7 +196,8 @@ def run_tip_adapter_F(config, cache_keys, cache_values, val_features, val_labels
     with open(config.OUTPUT, 'a') as f:
         f.write(
             f'Tip-Adapter-F,{config.MODEL.ARCH},{config.DATA.IF_TEACHER},{config.DATA.NUM_FRAMES},{acc1:.3f},{acc3:.3f},{acc5:.3f},{auc:.3f},{f1:.3f},{config.DATA.DATASET},'
-            f'{config.DATA.SHOTS} ,{str(config.TEXT_PROMPT.N_CTX_PRE) + " " + str(config.TEXT_PROMPT.N_CTX_POST) },{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}, {config.DATA.TEST_FILE}\n')
+            f'{config.DATA.SHOTS} ,{str(config.TEXT_PROMPT.N_CTX_PRE) + " " + str(config.TEXT_PROMPT.N_CTX_POST) },{config.DATA.CACHE_SIZE},{config.TEMPORAL_POOLING}, {config.DATA.TEST_FILE},'
+            f'{best_alpha},{best_beta}\n')
 
 def train_lp(clip_model,device,config,train_loader,class_names,attention_net, test_features, attention_test_feature,test_labels):
 
@@ -408,7 +412,7 @@ def main(config):
     if os.stat(config.OUTPUT).st_size == 0:
         with open(config.OUTPUT, 'a') as f:
             # Write the column names
-            f.write('Model,Arch,If_teacher,Num_Frames,Acc1,Acc3,Acc5,AUC,F1,Dataset,Shots,n_ctx,cache_size,TEMPORAL_POOLING, test_file\n')
+            f.write('Model,Arch,If_teacher,Num_Frames,Acc1,Acc3,Acc5,AUC,F1,Dataset,Shots,n_ctx,cache_size,TEMPORAL_POOLING, test_file, best_alpha, best_beta\n')
     (train_cache_data, val_data, test_data,train_data_F, train_data_a,
      train_load_cache, val_loader, test_loader, train_load_F, train_load_a)= build_dataloader(config, logger)
     class_names = [class_name for i, class_name in classes(config)]
