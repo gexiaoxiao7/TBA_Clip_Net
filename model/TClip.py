@@ -5,6 +5,7 @@ from torch import nn
 from PIL import Image
 import clip
 from collections import OrderedDict
+
 from model.tp import Attention
 import cv2
 from clip.simple_tokenizer import SimpleTokenizer as _Tokenizer
@@ -23,10 +24,10 @@ class VideoEncoder(nn.Module):
         self.device = device
         self.config = config
     def forward(self, images):
-        video_info = images # b, n_frames, c, height, weight
+        video_info = images # b, n_frames, 1 , c, height, weight
         image_features = torch.stack(
-            [torch.stack([self.model.encode_image(video_info[i, j]) for j in range(video_info.shape[1])], dim=0) for i in range(video_info.shape[0])],
-            dim=0)
+            [torch.stack([self.model.encode_image(video_info[i, j].to(self.device).type(self.dtype)) for j in range(video_info.shape[1])], dim=0) for i in range(video_info.shape[0])],
+            dim=0).to(torch.half)
 
         # video_info = [torch.from_numpy(x).to(self.device).type(self.dtype) for x in video_info]
         # image_features = [self.model.encode_image(x) for x in video_info]

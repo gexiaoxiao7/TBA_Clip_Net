@@ -202,6 +202,10 @@ def train_lp(clip_model,device,config,train_loader,class_names,attention_net, te
             torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "attention_model.pth"))
 
     prompt_learner = tbaclip.PromptLearner(config, class_names, clip_model.model, device,logger).to(torch.half)
+
+    if config.MODEL.LOAD_LP == 1:
+        prompt_learner.load_state_dict(torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "prompt_learner.pth"))
+
     optimizer = torch.optim.Adam(prompt_learner.parameters(), lr=config.TRAIN.LR, eps=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config.TRAIN.EPOCHS * len(train_loader))
     criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
@@ -265,11 +269,8 @@ def train_attention(clip_model,device,config,train_loader,clip_weights,test_feat
                                       mlp_dim=clip_model.model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
                                       nh=1, nw=1,
                                       dropout=0.1).to(device).to(torch.half)
-    # attention_net = FSATransformerEncoder(dim=clip_model.visual.output_dim, depth=6,
-    #                                   heads=1, dim_head=64,
-    #                                   mlp_dim=clip_model.visual.output_dim * 4, nt=config.DATA.NUM_FRAMES,
-    #                                   nh=1, nw=1,
-    #                                   dropout=0.1).to(device).to(torch.half)
+    if config.MODEL.LOAD_ATTENTION == 1:
+        attention_net.load_state_dict(torch.load(config.TIP_ADAPTER.CACHE_DIR + "/" + str(config.DATA.SHOTS) + "attention_model.pth"))
     optimizer = torch.optim.Adam(attention_net.parameters(), lr=config.TRAIN.LR, eps=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, config.TRAIN.EPOCHS * len(train_loader))
     criterion = LabelSmoothingCrossEntropy() if config.TRAIN.LABEL_SMOOTH == 1 else nn.CrossEntropyLoss()
@@ -433,12 +434,12 @@ def main(config):
                                       nh=1, nw=1,
                                       dropout=0.1).to(device).to(torch.half)
     logger.info("Training attention Net.")
-    if config.MODEL.LOAD_ATTENTION == 0 and config.TEMPORAL_POOLING == 'attention' and config.TRAIN.ZS == 0:
+    if config.TEMPORAL_POOLING == 'attention' and config.TRAIN.ZS == 0:
         train_attention(model, device, config, train_load_F, clip_weights, test_features, attention_test_feature, test_labels)
     # use prompt_learner
     logger.info("Training Prompt Learner.")
     prompt_learner = tbaclip.PromptLearner(config, class_names, model.model, device,logger).to(torch.half)
-    if config.MODEL.LOAD_LP == 0 and config.TRAIN.LP == 1 and config.TRAIN.ZS == 0 :
+    if config.TRAIN.LP == 1 and config.TRAIN.ZS == 0 :
         train_lp(model, device, config, train_load_a, class_names,attention_net, test_features, attention_test_feature, test_labels)
     # ------------------------------------------ Tip-Adapter ------------------------------------------
     if config.TRAIN.ZS == 1:

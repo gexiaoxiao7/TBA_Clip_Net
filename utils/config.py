@@ -94,41 +94,41 @@ def update_config(config, args):
     _update_config_from_file(config, args.config)
 
     config.defrost()
-    if args.batch_size is not None:
+    if hasattr(args, 'batch_size') and args.batch_size is not None:
         config.TRAIN.BATCH_SIZE = args.batch_size
-    if args.if_teacher is not None:
+    if hasattr(args, 'if_teacher') and args.if_teacher is not None:
         config.DATA.IF_TEACHER = args.if_teacher
-    if args.num_frames is not None:
+    if hasattr(args, 'num_frames') and args.num_frames is not None:
         config.DATA.NUM_FRAMES = args.num_frames
-    if args.arch is not None:
+    if hasattr(args, 'arch') and args.arch is not None:
         config.MODEL.ARCH = args.arch
-    if args.temporal_pooling is not None:
+    if hasattr(args, 'temporal_pooling') and args.temporal_pooling is not None:
         config.TEMPORAL_POOLING = args.temporal_pooling
-    if args.test_file is not None:
+    if hasattr(args, 'test_file') and args.test_file is not None:
         config.DATA.TEST_FILE = args.test_file
-    if args.load_cache is not None:
+    if hasattr(args, 'load_cache') and args.load_cache is not None:
         config.TIP_ADAPTER.LOAD_CACHE = args.load_cache
-    if args.load_pre_feat is not None:
+    if hasattr(args, 'load_pre_feat') and args.load_pre_feat is not None:
         config.TIP_ADAPTER.LOAD_PRE_FEAT = args.load_pre_feat
-    if args.load_attention is not None:
+    if hasattr(args, 'load_attention') and args.load_attention is not None:
         config.MODEL.LOAD_ATTENTION = args.load_attention
-    if args.output is not None:
-        config.OUTPUT= args.output
-    if args.zs is not None:
+    if hasattr(args, 'output') and args.output is not None:
+        config.OUTPUT = args.output
+    if hasattr(args, 'zs') and args.zs is not None:
         config.TRAIN.ZS = args.zs
-    if args.cache_size is not None:
+    if hasattr(args, 'cache_size') and args.cache_size is not None:
         config.DATA.CACHE_SIZE = args.cache_size
-    if args.shots is not None:
+    if hasattr(args, 'shots') and args.shots is not None:
         config.DATA.SHOTS = args.shots
-    if args.lp is not None:
+    if hasattr(args, 'lp') and args.lp is not None:
         config.TRAIN.LP = args.lp
-    if args.load_lp is not None:
+    if hasattr(args, 'load_lp') and args.load_lp is not None:
         config.MODEL.LOAD_LP = args.load_lp
-    if args.only_label is not None:
+    if hasattr(args, 'only_label') and args.only_label is not None:
         config.TEXT_PROMPT.ONLY_LABEL = args.only_label
-    if args.load_lp is not None:
+    if hasattr(args, 'load_lp') and args.load_lp is not None:
         config.MODEL.LOAD_LP = args.load_lp
-    if args.label_smooth is not None:
+    if hasattr(args, 'label_smooth') and args.label_smooth is not None:
         config.TRAIN.LABEL_SMOOTH = args.label_smooth
     # set local rank for distributed training
     config.freeze()

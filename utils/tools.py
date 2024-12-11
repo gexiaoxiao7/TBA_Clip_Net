@@ -108,17 +108,18 @@ def pre_load_features(config, split, clip_model, loader):
 
         with torch.no_grad():
             for idx, batch_data in enumerate(tqdm(loader)):
-                images = batch_data['data']
-                images = torch.stack(images)
-                images = torch.transpose(images, 0, 1)
+                images = batch_data['data'] #list: len:num_frame, shape:(b,1,c,h,w)
+                images = torch.stack(images) # (num_frame,b,1,c,w,h)
+                images = torch.transpose(images, 0, 1) #(b,num_frame,1,c,w,h)
                 label_id = batch_data['label']
+                # image_feature: (b,1,768)
+                # attention_format_feature: (b, num_frame ,1,768)
                 _,image_features,_,attention_format_feature= clip_model(images)
                 image_features /= image_features.norm(dim=-1, keepdim=True)
                 features.append(image_features)
                 labels.append(label_id)
                 attention_feature.append(attention_format_feature)
 
-        torch.cuda.synchronize()
         features, labels, attention_feature = torch.cat(features), torch.cat(labels), torch.cat(attention_feature)
         torch.save(features, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_f.pt")
         torch.save(labels, config.TIP_ADAPTER.CACHE_DIR + "/" + split + "_l.pt")
