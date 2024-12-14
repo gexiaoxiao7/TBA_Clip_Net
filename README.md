@@ -1,5 +1,6 @@
-# TBA-ClipNet
 **Full Docs will be released in camera-ready version.**
+# TBA-ClipNet
+## Running Example
 ![image](https://github.com/gexiaoxiao7/MediaPool/blob/main/bowing_to_students.gif?raw=true)
 ## Requirements
 Create a conda environment and install dependencies:
