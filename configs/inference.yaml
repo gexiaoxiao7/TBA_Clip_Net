@@ -10,4 +10,4 @@ alpha: 2.855
 # batch_size
 batch_size: 4
 # frame_step
-frame_step: 3
+frame_step: 2

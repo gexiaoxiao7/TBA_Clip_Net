@@ -1,7 +1,7 @@
 DATA:
     ROOT: '/root/autodl-fs/hmdb51/'
     TRAIN_FILE: 'datasets_splits/hmdb51/train.txt'
-    TEST_FILE: 'datasets_splits/hmdb51/test_split_1.txt'
+    TEST_FILE: 'datasets_splits/hmdb51/test_reordered_part1.txt'
     DATASET: hmdb51
     NUM_FRAMES: 8
     NUM_CLASSES: 51
