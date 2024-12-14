@@ -23,11 +23,17 @@ Here is the link for our proposed teacher teaching behavior dataset(TBAD):
 [TBAD DATASET](https://pan.baidu.com/s/1J1WaDKf_g42n-mDU4-XAOA?pwd=7g6n)
 pwd: 7g6n
 ## Configs
-The running configurations can be modified in configs/dataset.yaml, including shot numbers, visual encoders, and hyperparamters. 
+The running configurations can be modified in `.yaml` files under `configs` folder path, including shot numbers, visual encoders, and hyperparamters. 
 You should change the ROOT dir to your dataset dir.
 
 ## Running
 For TBAD dataset:
 ```bash
 python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml
+```
+
+## Inferencing
+For TBAD dataset:
+```bash
+python inverence.py -cfg configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml -infer_set configs/inference.yaml
 ```
