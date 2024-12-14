@@ -54,6 +54,7 @@ def clip_classifier(classnames,clip_model,config,device):
     return clip_weights
 
 def classes(config):
+    print(config.DATA.LABEL_LIST)
     classes_all = pd.read_csv(config.DATA.LABEL_LIST)
     return classes_all.values.tolist()
 

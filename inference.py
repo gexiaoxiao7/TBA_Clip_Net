@@ -36,30 +36,58 @@ def load_model(config,settings,class_names,model,device,logger):
 
     return prompt_learner, attention_net, cache_keys, cache_values, adapter
 
-def prepare_frames(path, num_frames, detector, preprocess):
+def prepare_frames(path, num_frames, detector, preprocess, frame_step=2):
 
     video_capture = cv2.VideoCapture(path)
     total_frames = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+    frame_ids = list(range(num_frames, total_frames - 1, frame_step))
     frames = []
-    frame_ids = np.linspace(0, total_frames - 2, num_frames)
-    frame_ids = np.floor(frame_ids).astype(int)
+    all_frames = []
     for i in range(total_frames + 1):
         ret, frame = video_capture.read()
         if not ret:
             break
-        if i in frame_ids:
-            frames.append(frame)
+        all_frames.append(frame)
 
-    while len(frames) < num_frames:
-        frames.extend(frames[:num_frames - len(frames)])
+    for i in frame_ids:
+        t = []
+        for j in range(i-num_frames,i):
+            t.append(all_frames[j])
+        frames.append(t)
+
     video_capture.release()
     for i in range(len(frames)):
-        frames[i] = detector(frames[i])
-    frames = [
-        preprocess(Image.fromarray(cv2.cvtColor(c, cv2.COLOR_BGR2RGB))).unsqueeze(0) for c in
-        frames]
-    return frames
+        for j in range(len(frames[i])):
+            frames[i][j] = detector(frames[i][j])
+            frames[i][j] = preprocess(Image.fromarray(cv2.cvtColor(frames[i][j], cv2.COLOR_BGR2RGB))).unsqueeze(0)
+            frames[i][j] = frames[i][j].unsqueeze(1)
+    return frames, all_frames, frame_ids
 
+
+def visualize(all_frames, frame_ids, predict_text, file_names, sims ,output_dir='output'):
+    for idx in range(len(all_frames)):
+        height, width, layers = all_frames[idx][0].shape
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fps = 30
+        output_path = os.path.join(output_dir, file_names[idx])
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        current_text_1 = ""
+        current_text_2 = ""
+        current_text_3 = ""
+        for i, frame in enumerate(all_frames[idx]):
+            if i in frame_ids[idx]:
+                index = frame_ids[idx].index(i)
+                current_text_1 = f"{predict_text[idx][index][0]}:{str(sims[idx][index][0])}"
+                current_text_2 = f"{predict_text[idx][index][1]}:{str(sims[idx][index][1])}"
+                current_text_3 = f"{predict_text[idx][index][2]}:{str(sims[idx][index][2])}"
+
+            cv2.putText(frame, current_text_1, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            cv2.putText(frame, current_text_2, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            cv2.putText(frame, current_text_3, (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
+            out.write(frame)
+        out.release()
+        print(f"Annotated video saved to {output_path}")
 
 @torch.no_grad()
 def main(config, settings):
@@ -76,46 +104,52 @@ def main(config, settings):
     model = tbaclip.returnCLIP(config, class_names, device,logger)
     prompt_learner, attention_model, cache_keys, cache_values, tip_adapter = load_model(config,settings,class_names,model,device,logger)
 
-    # preprocess
-    video_infos = []
+    # prepare data
+    video_infos, all_frames, frame_ids = [], [], []
     for item in os.listdir(settings['input']):
         item_path = os.path.join(settings['input'], item)
-        data = prepare_frames(item_path, config.DATA.NUM_FRAMES, detector, model.preprocess)
-        video_infos.append((dict(filename=item, data=data)))
-
-    from torch.utils.data import Dataset, DataLoader
-    class VideoDataset(Dataset):
-        def __init__(self, data):
-            self.data = data
-        def __len__(self):
-            return len(self.data)
-        def __getitem__(self, idx):
-            return self.data[idx]
-
-    video_dataset = VideoDataset(video_infos)
-    video_loader = DataLoader(video_dataset, batch_size=settings['batch_size'], shuffle=False)
+        infos_by_frame, all_frames_t, frame_ids_t = prepare_frames(item_path, config.DATA.NUM_FRAMES, detector, model.preprocess, settings['frame_step'])
+        video_infos.append((dict(filename=item, data=infos_by_frame)))
+        all_frames.append(all_frames_t)
+        frame_ids.append(frame_ids_t)
 
     # inference
-    predict_label, file_name = [], []
-    for idx, batch_info in enumerate(tqdm(video_loader)):
-        images = batch_info['data']
-        images = torch.stack(images)
-        images = torch.transpose(images, 0, 1)
-        _ , image_features, _, attention_format_feature = model(images)
-        image_features = attention_Fuc(attention_model, attention_format_feature, image_features)
-        clip_logits = promptlearner_Fuc(prompt_learner, image_features, model)
-        tip_adapter.eval()
-        affinity = tip_adapter(image_features)
-        cache_logits = ((-1) * (settings['beta'] - settings['beta'] * affinity)).exp() @ cache_values.to(affinity.device)
-        tip_logits = clip_logits + cache_logits * settings['alpha']
+    # TODO: batch inference
+    predict_label, file_name, sims = [], [], []
+    for idx, video_info in enumerate(video_infos):
+        t, sim = [], []
+        for info in tqdm(video_info['data']):
+            images = info
+            images = torch.stack(images)
+            images = torch.transpose(images, 0, 1)
+            _ , image_features, _, attention_format_feature = model(images)
+            image_features = attention_Fuc(attention_model, attention_format_feature, image_features)
+            clip_logits = promptlearner_Fuc(prompt_learner, image_features, model)
+            tip_adapter.eval()
+            affinity = tip_adapter(image_features)
+            cache_logits = ((-1) * (settings['beta'] - settings['beta'] * affinity)).exp() @ cache_values.to(affinity.device)
+            tip_logits = clip_logits + cache_logits * settings['alpha']
 
-        _, indices_1 = tip_logits.topk(1, dim=-1)
-        # 把indices_1 展平加入到predict_label中
-        predict_label.extend(indices_1.flatten().tolist())
-        file_name.extend(batch_info['filename'])
-    print(predict_label)
-    print(file_name)
-    #visualize
+            s, indices_3 = tip_logits.topk(3, dim=-1)
+            s = torch.nn.functional.softmax(s, dim=-1).squeeze().tolist()
+            s = [round(x, 3) for x in s]
+            t.append(indices_3)
+            sim.append(s)
+        predict_label.append(t)
+        sims.append(sim)
+        file_name.append(video_info['filename'])
+
+    # 映射一下，将predict_label中的索引映射到类别
+    predict_text = []
+    for i in range(len(predict_label)): #2
+        ii = []
+        for j in range(len(predict_label[i])): #15
+            t = predict_label[i][j].squeeze().tolist()
+            t = [class_names[x] for x in t]
+            ii.append(t)
+        predict_text.append(ii)
+
+    visualize(all_frames, frame_ids, predict_text, file_name, sims, settings['output'])
 
 
 

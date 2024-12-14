@@ -1,4 +1,6 @@
+# TBA-ClipNet
 **Full Docs will be released in camera-ready version.**
+![image](https://github.com/gexiaoxiao7/MediaPool/blob/main/bowing_to_students.gif?raw=true)
 ## Requirements
 Create a conda environment and install dependencies:
 ```bash
@@ -16,7 +18,9 @@ $DATASET/
 |–– ucf-101/
 |–– humdb51/
 ```
-
+Here is the link for our proposed teacher teaching behavior dataset(TBAD):
+[TBAD DATASET](https://pan.baidu.com/s/1J1WaDKf_g42n-mDU4-XAOA?pwd=7g6n)
+pwd: 7g6n
 ## Configs
 The running configurations can be modified in configs/dataset.yaml, including shot numbers, visual encoders, and hyperparamters. 
 You should change the ROOT dir to your dataset dir.
