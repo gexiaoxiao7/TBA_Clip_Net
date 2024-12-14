@@ -1,4 +1,3 @@
-
 v_CliffDiving_g06_c06.avi 21
 v_Rafting_g19_c03.avi 72
 v_BenchPress_g08_c05.avi 9

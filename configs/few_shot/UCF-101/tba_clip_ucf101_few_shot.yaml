@@ -1,10 +1,9 @@
 DATA:
-#    ROOT: 'E:/DATASETS/TBAD-8/tbad-8/'
-    ROOT: '/root/autodl-fs/ucf-101/'
+    ROOT: '/root/autodl-fs/ucf101_split2/'
     TRAIN_FILE: 'datasets_splits/UCF-101/train.txt'
-    TEST_FILE: ''
-    DATASET: UCF-101
-    NUM_FRAMES: 16
+    TEST_FILE: 'datasets_splits/UCF-101/test_split_1.txt'
+    DATASET:  ucf-101
+    NUM_FRAMES: 8
     NUM_CLASSES: 101
     LABEL_LIST: 'labels/UCF-101_base_labels.csv'
     IF_TEACHER: 1
@@ -14,12 +13,15 @@ MODEL:
     ARCH: ViT-L/14@336px
     YOLO: 'Yolo-model/yolov8n.pt'
     LOAD_ATTENTION: 1
+    LOAD_LP: 1
+    LOAD_ADAPTER: 1
 TRAIN:
-    IF_TEST: 0
+    LABEL_SMOOTH: 1
     ZS: 0
-    BATCH_SIZE: 1 # BS 64
+    LP: 1
+    BATCH_SIZE: 8 # BS 64
     ACCUMULATION_STEPS: 2
-    EPOCHS: 20
+    EPOCHS: 15
     LR: 0.001
 TIP_ADAPTER:
     CACHE_DIR: ''
@@ -28,11 +30,14 @@ TIP_ADAPTER:
     LOAD_PRE_FEAT: 1
     INIT_BETA: 1
     INIT_ALPHA: 3
-OUTPUT: '/root/autodl-fs/results.csv'
-#OUTPUT: 'output_test_tip.csv'
+TEXT_PROMPT:
+    N_CTX_PRE: 8
+    CTX_PRE_INIT: "x x x x x x x x"
+    N_CTX_POST: 3
+    CTX_POST_INIT: "x x x"
+    ONLY_LABEL: 0
+OUTPUT: 'output_test_tip.csv'
 SEARCH_HP: 1
 SEARCH_SCALE: [7, 3]
 SEARCH_STEP: [200, 20]
-PREFIX: ["The action of the person in the picture is", "A person was", "A photo of"]
-SUFFIX: ''
 TEMPORAL_POOLING: 'attention'
