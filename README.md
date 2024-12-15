@@ -4,16 +4,17 @@
 
 <table>
     <tr>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/TBA_Clip_Net/releases/tag/gifs/bowing_to_students.gif"/></center></td>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/TBA_Clip_Net/releases/tag/gifs/inviting_students.gif"/></center></td>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/TBA_Clip_Net/releases/tag/gifs/opearting.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/bowing_to_students.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/inviting_students.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/opearting.gif"/></center></td>
     </tr>
 </table>
+
 <table>
     <tr>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/TBA_Clip_Net/releases/tag/gifs/walking.gif"/></center></td>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/TBA_Clip_Net/releases/tag/gifs/pointting.gif"/></center></td>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/TBA_Clip_Net/releases/tag/gifs/writing.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/walking.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/pointting.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/writing.gif"/></center></td>
     </tr>
 </table>
 
