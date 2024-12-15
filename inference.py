@@ -64,26 +64,51 @@ def prepare_frames(path, num_frames, detector, preprocess, frame_step=2):
     return frames, all_frames, frame_ids
 
 
-def visualize(all_frames, frame_ids, predict_text, file_names, sims ,output_dir='output'):
+def visualize(all_frames, frame_ids, predict_text, file_names, sims, output_dir='output'):
     for idx in range(len(all_frames)):
         height, width, layers = all_frames[idx][0].shape
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         fps = 30
         output_path = os.path.join(output_dir, file_names[idx])
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-        current_text_1 = ""
-        current_text_2 = ""
-        current_text_3 = ""
+        current_label_1,current_text_1 = "",""
+        current_label_2,current_text_2 = "",""
+        current_label_3,current_text_3 = "",""
+
+        font_scale_text = 1.2
+        font_text = cv2.FONT_HERSHEY_TRIPLEX
+        font_color_text = (255, 255, 255)
+        thickness_text = 2
+
+        font_scale_label = 1.2
+        font_label = cv2.FONT_HERSHEY_TRIPLEX
+        font_color_label = (84, 174, 255)
+        thickness_label = 2
+
         for i, frame in enumerate(all_frames[idx]):
+            # 绘制半透明灰色矩形作为文字背景，参数可根据实际效果微调
+            overlay = frame.copy()
+            x, y = 0, height - 130  # 修改这里，让矩形出现在左下角，y坐标根据矩形高度调整，使其靠下显示
+            rect_width = width
+            rect_height = 150
+            cv2.rectangle(overlay, (x, y), (x + rect_width, y + rect_height), (128, 128, 128), -1)  # 灰色半透明矩形
+            alpha = 0.5  # 透明度因子，可调整
+            cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
             if i in frame_ids[idx]:
                 index = frame_ids[idx].index(i)
-                current_text_1 = f"{predict_text[idx][index][0]}:{str(sims[idx][index][0])}"
-                current_text_2 = f"{predict_text[idx][index][1]}:{str(sims[idx][index][1])}"
-                current_text_3 = f"{predict_text[idx][index][2]}:{str(sims[idx][index][2])}"
+                current_text_1 = f"{predict_text[idx][index][0]}"
+                current_label_1 = f"[{str(sims[idx][index][0])}]"
+                current_text_2 = f"{predict_text[idx][index][1]}"
+                current_label_2 = f"[{str(sims[idx][index][1])}]"
+                current_text_3 = f"{predict_text[idx][index][2]}"
+                current_label_3 = f"[{str(sims[idx][index][2])}]"
 
-            cv2.putText(frame, current_text_1, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            cv2.putText(frame, current_text_2, (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            cv2.putText(frame, current_text_3, (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            cv2.putText(frame, current_label_1, (10, height - 110), font_label, font_scale_label, font_color_label, thickness_label)
+            cv2.putText(frame, current_text_1, (155, height - 110), font_text, font_scale_text, font_color_text, thickness_text)
+            cv2.putText(frame, current_label_2, (10, height - 60), font_label, font_scale_label, font_color_label, thickness_label)
+            cv2.putText(frame, current_text_2, (155, height - 60), font_text, font_scale_text, font_color_text, thickness_text)
+            cv2.putText(frame, current_label_3, (10, height - 10), font_label, font_scale_label, font_color_label, thickness_label)
+            cv2.putText(frame, current_text_3, (155, height - 10), font_text, font_scale_text, font_color_text, thickness_text)
 
             out.write(frame)
         out.release()
