@@ -1,22 +1,3 @@
-# TBA-ClipNet
-## Running Example
-
-<table>
-    <tr>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/bowing_to_students.gif"/></center></td>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/inviting_students.gif"/></center></td>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/opearting.gif"/></center></td>
-    </tr>
-</table>
-
-<table>
-    <tr>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/walking.gif"/></center></td>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/pointting.gif"/></center></td>
-        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/writing.gif"/></center></td>
-    </tr>
-</table>
-
 ## Requirements
 Create a conda environment and install dependencies:
 ```bash
@@ -26,6 +7,8 @@ conda activate TBA-CLIPNet
 # Install the according versions of torch and torchvision
 pip install -r requirements.txt
 ```
+Download pretrained yolov8 model file and put it under `Yolo-model` folder.
+
 ## Dataset
 We suggest putting all datasets under the same folder (say $DATASET) to ease management and following the instructions below to organize datasets to avoid modifying the source code. The file structure looks like
 ```text
@@ -50,5 +33,5 @@ python main.py -cfg ./configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml
 ## Inferencing
 For TBAD dataset:
 ```bash
-python inverence.py -cfg configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml -infer_set configs/inference.yaml
+python inference.py -cfg configs/few_shot/TBAD-8/tba_clip_tbad_few_shot.yaml -infer_set configs/inference.yaml
 ```
