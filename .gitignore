@@ -7,7 +7,7 @@
 **/__pycache__
 *.sh
 /test
-/caches
+/caches/*
 /train_output/log_rank0.txt
 *.csv
 *.png
@@ -16,3 +16,4 @@
 input
 .DS_Store
 /Yolo-model/yolov8n.pt
+__pycache__/
