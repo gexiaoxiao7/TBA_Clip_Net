@@ -1,3 +1,25 @@
+# TBA-ClipNet
+This repository is the official implementation of the IJCNN2025 paper: 
+"Using Domain Adapter and Prompt Learner for Few-shot Teaching Action Recognition in videos"
+
+## Running Example
+
+<table>
+    <tr>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/bowing_to_students.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/inviting_students.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/opearting.gif"/></center></td>
+    </tr>
+</table>
+
+<table>
+    <tr>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/walking.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/pointting.gif"/></center></td>
+        <td ><center><img width="100%" alt="" src="https://github.com/gexiaoxiao7/MediaPool/blob/main/writing.gif"/></center></td>
+    </tr>
+</table>
+
 ## Requirements
 Create a conda environment and install dependencies:
 ```bash
